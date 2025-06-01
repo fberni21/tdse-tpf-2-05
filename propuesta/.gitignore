@@ -1,0 +1,6 @@
+# Latex compilation files
+*.aux
+*.dvi
+*.log
+*.out
+*.pdf
