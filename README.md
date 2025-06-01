@@ -1,2 +1,3 @@
-# tdse-tpf-control-tvac
-FIUBA - Electrónica - Taller de Sistemas Embebidos - Trabajo Práctico Final - Control TVac
+# Sistema de Control de Cámara de Termovacío
+
+Trabajo Práctico Final de Taller de Sistemas Embebidos (FIUBA).
