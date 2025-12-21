@@ -55,8 +55,9 @@ extern "C" {
 /********************** typedef **********************************************/
 
 typedef struct {
-	bool adc_end_of_conversion;
-	uint16_t adc_value;
+	bool     adc_end_of_conversion;
+	uint16_t temp_raw;
+	uint16_t pressure_raw;
 	uint16_t pwm_active;
 } shared_data_type;
 

@@ -59,31 +59,26 @@ extern "C" {
 /* STM32 Nucleo Boards - 64 Pins */
 #if ((BOARD == NUCLEO_F103RC) || (BOARD == NUCLEO_F401RE) || (BOARD == NUCLEO_F446RE))
 
-//#define BTN_A_PIN		B1_Pin
-//#define BTN_A_PORT		B1_GPIO_Port
-//#define BTN_A_PRESSED	GPIO_PIN_RESET
-//#define BTN_A_HOVER		GPIO_PIN_SET
-//
-//#define BTN_B_PIN		GPIO_PIN_10
-//#define BTN_B_PORT		GPIOA
-//#define BTN_B_PRESSED	GPIO_PIN_RESET
-//#define BTN_B_HOVER		GPIO_PIN_SET
-//
-//#define BTN_C_PIN		GPIO_PIN_5
-//#define BTN_C_PORT		GPIOB
-//#define BTN_C_PRESSED	GPIO_PIN_RESET
-//#define BTN_C_HOVER		GPIO_PIN_SET
-//
-//#define BTN_D_PIN		GPIO_PIN_4
-//#define BTN_D_PORT		GPIOB
-//#define BTN_D_PRESSED	GPIO_PIN_RESET
-//#define BTN_D_HOVER		GPIO_PIN_SET
-//
-//#define BTN_E_PIN		GPIO_PIN_10
-//#define BTN_E_PORT		GPIOB
-//#define BTN_E_PRESSED	GPIO_PIN_RESET
-//#define BTN_E_HOVER		GPIO_PIN_SET
-//
+#define BTN_ENT_PIN		D10_Pin
+#define BTN_ENT_PORT	D10_GPIO_Port
+#define BTN_ENT_PRESSED	GPIO_PIN_RESET
+#define BTN_ENT_HOVER	GPIO_PIN_SET
+
+#define BTN_NEX_PIN		D11_Pin
+#define BTN_NEX_PORT	D11_GPIO_Port
+#define BTN_NEX_PRESSED	GPIO_PIN_RESET
+#define BTN_NEX_HOVER	GPIO_PIN_SET
+
+#define BTN_PRE_PIN		D12_Pin
+#define BTN_PRE_PORT	D12_GPIO_Port
+#define BTN_PRE_PRESSED	GPIO_PIN_RESET
+#define BTN_PRE_HOVER	GPIO_PIN_SET
+
+#define BTN_ESC_PIN		D13_Pin
+#define BTN_ESC_PORT	D13_GPIO_Port
+#define BTN_ESC_PRESSED	GPIO_PIN_RESET
+#define BTN_ESC_HOVER	GPIO_PIN_SET
+
 //#define LED_A_PIN		LD2_Pin
 //#define LED_A_PORT		LD2_GPIO_Port
 //#define LED_A_ON		GPIO_PIN_SET
