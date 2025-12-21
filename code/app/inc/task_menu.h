@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Juan Manuel Cruz <jcruz@fi.uba.ar>.
+ * Copyright (c) 2023 Juan Manuel Cruz <jcruz@fi.uba.ar> <jcruz@frba.utn.edu.ar>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,14 +29,14 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- * @file   : board.h
+ * @file   : task_menu.h
  * @date   : Set 26, 2023
  * @author : Juan Manuel Cruz <jcruz@fi.uba.ar> <jcruz@frba.utn.edu.ar>
  * @version	v1.0.0
  */
 
-#ifndef BOARD_INC_BOARD_H_
-#define BOARD_INC_BOARD_H_
+#ifndef TASK_INC_TASK_MENU_H_
+#define TASK_INC_TASK_MENU_H_
 
 /********************** CPP guard ********************************************/
 #ifdef __cplusplus
@@ -46,91 +46,22 @@ extern "C" {
 /********************** inclusions *******************************************/
 
 /********************** macros ***********************************************/
-#define NUCLEO_F103RC		(0)
-#define NUCLEO_F401RE		(1)
-#define NUCLEO_F446RE		(2)
-#define NUCLEO_F429ZI		(3)
-#define NUCLEO_F439ZI		(4)
-#define NUCLEO_F413ZH		(5)
-#define STM32F429I_DISCO1	(6)
-
-#define BOARD (NUCLEO_F103RC)
-
-/* STM32 Nucleo Boards - 64 Pins */
-#if ((BOARD == NUCLEO_F103RC) || (BOARD == NUCLEO_F401RE) || (BOARD == NUCLEO_F446RE))
-
-//#define BTN_A_PIN		B1_Pin
-//#define BTN_A_PORT		B1_GPIO_Port
-//#define BTN_A_PRESSED	GPIO_PIN_RESET
-//#define BTN_A_HOVER		GPIO_PIN_SET
-//
-//#define BTN_B_PIN		GPIO_PIN_10
-//#define BTN_B_PORT		GPIOA
-//#define BTN_B_PRESSED	GPIO_PIN_RESET
-//#define BTN_B_HOVER		GPIO_PIN_SET
-//
-//#define BTN_C_PIN		GPIO_PIN_5
-//#define BTN_C_PORT		GPIOB
-//#define BTN_C_PRESSED	GPIO_PIN_RESET
-//#define BTN_C_HOVER		GPIO_PIN_SET
-//
-//#define BTN_D_PIN		GPIO_PIN_4
-//#define BTN_D_PORT		GPIOB
-//#define BTN_D_PRESSED	GPIO_PIN_RESET
-//#define BTN_D_HOVER		GPIO_PIN_SET
-//
-//#define BTN_E_PIN		GPIO_PIN_10
-//#define BTN_E_PORT		GPIOB
-//#define BTN_E_PRESSED	GPIO_PIN_RESET
-//#define BTN_E_HOVER		GPIO_PIN_SET
-//
-//#define LED_A_PIN		LD2_Pin
-//#define LED_A_PORT		LD2_GPIO_Port
-//#define LED_A_ON		GPIO_PIN_SET
-//#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif/* STM32 Nucleo Boards - 144 Pins */
-
-#if ((BOARD == NUCLEO_F429ZI) || (BOARD == NUCLEO_F439ZI) || (BOARD == NUCLEO_F413ZH))
-
-#define BTN_A_PIN		USER_Btn_Pin
-#define BTN_A_PORT		USER_Btn_GPIO_Port
-#define BTN_A_PRESSED	GPIO_PIN_SET
-#define BTN_A_HOVER		GPIO_PIN_RESET
-
-#define LED_A_PIN		LD1_Pin
-#define LED_A_PORT		LD1_GPIO_Port
-#define LED_A_ON		GPIO_PIN_SET
-#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif
-
-/* STM32 Discovery Kits */
-#if (BOARD == STM32F429I_DISCO1)
-
-#define BTN_A_PIN		B1_Pin
-#define BTN_A_PORT		B1_GPIO_Port
-#define BTN_A_PRESSED	GPIO_PIN_SET
-#define BTN_A_HOVER		GPIO_PIN_RESET
-
-#define LED_A_PIN		LD3_Pin
-#define LED_A_PORT		LD3_GPIO_Port
-#define LED_A_ON		GPIO_PIN_SET
-#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif
 
 /********************** typedef **********************************************/
 
 /********************** external data declaration ****************************/
+extern uint32_t g_task_menu_cnt;
+extern volatile uint32_t g_task_menu_tick_cnt;
 
 /********************** external functions declaration ***********************/
+extern void task_menu_init(void *parameters);
+extern void task_menu_update(void *parameters);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* BOARD_INC_BOARD_H_ */
+#endif /* TASK_INC_TASK_MENU_H_ */
 
 /********************** end of file ******************************************/

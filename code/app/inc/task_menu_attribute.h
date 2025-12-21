@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Juan Manuel Cruz <jcruz@fi.uba.ar>.
+ * Copyright (c) 2023 Juan Manuel Cruz <jcruz@fi.uba.ar> <jcruz@frba.utn.edu.ar>.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -29,14 +29,14 @@
  * IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  *
- * @file   : board.h
+ * @file   : task_menu_attribute.h
  * @date   : Set 26, 2023
  * @author : Juan Manuel Cruz <jcruz@fi.uba.ar> <jcruz@frba.utn.edu.ar>
  * @version	v1.0.0
  */
 
-#ifndef BOARD_INC_BOARD_H_
-#define BOARD_INC_BOARD_H_
+#ifndef TASK_INC_TASK_MENU_ATTRIBUTE_H_
+#define TASK_INC_TASK_MENU_ATTRIBUTE_H_
 
 /********************** CPP guard ********************************************/
 #ifdef __cplusplus
@@ -46,83 +46,51 @@ extern "C" {
 /********************** inclusions *******************************************/
 
 /********************** macros ***********************************************/
-#define NUCLEO_F103RC		(0)
-#define NUCLEO_F401RE		(1)
-#define NUCLEO_F446RE		(2)
-#define NUCLEO_F429ZI		(3)
-#define NUCLEO_F439ZI		(4)
-#define NUCLEO_F413ZH		(5)
-#define STM32F429I_DISCO1	(6)
 
-#define BOARD (NUCLEO_F103RC)
-
-/* STM32 Nucleo Boards - 64 Pins */
-#if ((BOARD == NUCLEO_F103RC) || (BOARD == NUCLEO_F401RE) || (BOARD == NUCLEO_F446RE))
-
-//#define BTN_A_PIN		B1_Pin
-//#define BTN_A_PORT		B1_GPIO_Port
-//#define BTN_A_PRESSED	GPIO_PIN_RESET
-//#define BTN_A_HOVER		GPIO_PIN_SET
-//
-//#define BTN_B_PIN		GPIO_PIN_10
-//#define BTN_B_PORT		GPIOA
-//#define BTN_B_PRESSED	GPIO_PIN_RESET
-//#define BTN_B_HOVER		GPIO_PIN_SET
-//
-//#define BTN_C_PIN		GPIO_PIN_5
-//#define BTN_C_PORT		GPIOB
-//#define BTN_C_PRESSED	GPIO_PIN_RESET
-//#define BTN_C_HOVER		GPIO_PIN_SET
-//
-//#define BTN_D_PIN		GPIO_PIN_4
-//#define BTN_D_PORT		GPIOB
-//#define BTN_D_PRESSED	GPIO_PIN_RESET
-//#define BTN_D_HOVER		GPIO_PIN_SET
-//
-//#define BTN_E_PIN		GPIO_PIN_10
-//#define BTN_E_PORT		GPIOB
-//#define BTN_E_PRESSED	GPIO_PIN_RESET
-//#define BTN_E_HOVER		GPIO_PIN_SET
-//
-//#define LED_A_PIN		LD2_Pin
-//#define LED_A_PORT		LD2_GPIO_Port
-//#define LED_A_ON		GPIO_PIN_SET
-//#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif/* STM32 Nucleo Boards - 144 Pins */
-
-#if ((BOARD == NUCLEO_F429ZI) || (BOARD == NUCLEO_F439ZI) || (BOARD == NUCLEO_F413ZH))
-
-#define BTN_A_PIN		USER_Btn_Pin
-#define BTN_A_PORT		USER_Btn_GPIO_Port
-#define BTN_A_PRESSED	GPIO_PIN_SET
-#define BTN_A_HOVER		GPIO_PIN_RESET
-
-#define LED_A_PIN		LD1_Pin
-#define LED_A_PORT		LD1_GPIO_Port
-#define LED_A_ON		GPIO_PIN_SET
-#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif
-
-/* STM32 Discovery Kits */
-#if (BOARD == STM32F429I_DISCO1)
-
-#define BTN_A_PIN		B1_Pin
-#define BTN_A_PORT		B1_GPIO_Port
-#define BTN_A_PRESSED	GPIO_PIN_SET
-#define BTN_A_HOVER		GPIO_PIN_RESET
-
-#define LED_A_PIN		LD3_Pin
-#define LED_A_PORT		LD3_GPIO_Port
-#define LED_A_ON		GPIO_PIN_SET
-#define LED_A_OFF		GPIO_PIN_RESET
-
-#endif
+#define NUM_MOTORS 2
 
 /********************** typedef **********************************************/
 
+/* Events to excite Task Menu */
+typedef enum task_menu_ev {EV_MEN_ENT_IDLE,
+						   EV_MEN_ENT_ACTIVE,
+						   EV_MEN_NEX_IDLE,
+						   EV_MEN_NEX_ACTIVE,
+						   EV_MEN_ESC_IDLE,
+						   EV_MEN_ESC_ACTIVE} task_menu_ev_t;
+
+/* State of Task Menu */
+typedef enum task_menu_st {ST_MEN_MAIN,
+						   ST_MEN_SELECT_MOTOR,
+                           ST_MEN_PARAM_POWER,
+                           ST_MEN_PARAM_SPEED,
+                           ST_MEN_PARAM_SPIN,
+                           ST_MEN_MODIFY_POWER,
+                           ST_MEN_MODIFY_SPEED,
+                           ST_MEN_MODIFY_SPIN} task_menu_st_t;
+
+typedef struct
+{
+	uint32_t speed;
+	uint32_t spin;
+	uint32_t power;
+} motor_status_t;
+
+typedef struct
+{
+	uint32_t		  tick;
+	task_menu_st_t 	  state;
+	task_menu_ev_t	  event;
+	bool			  flag;
+	uint32_t          motor;
+	uint32_t          speed;
+	uint32_t          spin;
+	uint32_t          power;
+	motor_status_t    motor_status[NUM_MOTORS];
+} task_menu_dta_t;
+
 /********************** external data declaration ****************************/
+extern task_menu_dta_t task_menu_dta;
 
 /********************** external functions declaration ***********************/
 
@@ -131,6 +99,6 @@ extern "C" {
 }
 #endif
 
-#endif /* BOARD_INC_BOARD_H_ */
+#endif /* TASK_INC_TASK_MENU_ATTRIBUTE_H_ */
 
 /********************** end of file ******************************************/
