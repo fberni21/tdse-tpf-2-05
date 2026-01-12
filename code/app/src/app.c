@@ -80,8 +80,8 @@ const task_cfg_t task_cfg_list[]	= {
 		{task_sensor_init, 		task_sensor_update, 	NULL},
 		//{task_system_init, 		task_system_update, 	NULL},
 		//{task_actuator_init,	task_actuator_update, 	NULL},
-		{task_adc_init,			task_adc_update, 		&shared_data},
-		//{task_menu_init,		task_menu_update, 		NULL},
+		//{task_adc_init,			task_adc_update, 		&shared_data},
+		{task_menu_init,		task_menu_update, 		NULL},
 };
 
 #define TASK_QTY	(sizeof(task_cfg_list)/sizeof(task_cfg_t))
@@ -172,6 +172,7 @@ void HAL_SYSTICK_Callback(void)
 	g_task_sensor_tick_cnt++;
 	g_task_system_tick_cnt++;
 	g_task_actuator_tick_cnt++;
+	g_task_menu_tick_cnt++;
 }
 
 /********************** end of file ******************************************/

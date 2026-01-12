@@ -59,18 +59,22 @@
 #define DEL_MEN_XX_MED				50ul
 #define DEL_MEN_XX_MAX				500ul
 
-#define POWER_OFF 0
-#define POWER_ON  1
 
-#define SPEED_MAX 9
+#define TEMP_SETPOINT_INI		25 		// celsius
+#define TEMP_HYSTERESIS_INI		2 		// celsius
+#define PRESS_SETPOINT_INI		1013 	// hPa
+#define PRESS_HYSTERESIS_INI	10 		// hPa
+#define ALARM_ENABLE_INI 		true
 
-#define SPIN_LEFT  0
-#define SPIN_RIGHT 1
+#define TEMP_SETPOINT_MAX		80		// celsius
+#define TEMP_HYSTERESIS_MAX		10		// celsius
+#define PRESS_SETPOINT_MAX		1100	// hPa
+#define PRESS_HYSTERESIS_MAX	100		// hPa
 
 
 /********************** internal data declaration ****************************/
 task_menu_dta_t task_menu_dta =
-	{DEL_MEN_XX_MIN, ST_MEN_MAIN, EV_MEN_ENT_IDLE, false, 0, 0, 0, 0, {{0}}};
+	{DEL_MEN_XX_MIN, ST_MEN_IDLE_VIEW, EV_MEN_ENT_IDLE, false, {0}, 0};
 
 #define MENU_DTA_QTY	(sizeof(task_menu_dta)/sizeof(task_menu_dta_t))
 
@@ -119,7 +123,13 @@ void task_menu_init(void *parameters)
 	cycle_counter_init();
 	cycle_counter_reset();
 
-	displayInit( DISPLAY_CONNECTION_GPIO_4BITS );
+	//displayInit( DISPLAY_CONNECTION_GPIO_4BITS );
+
+	task_menu_dta.cfg.temp_setpoint = TEMP_SETPOINT_INI;
+	task_menu_dta.cfg.temp_hysteresis = TEMP_HYSTERESIS_INI;
+	task_menu_dta.cfg.press_setpoint = PRESS_SETPOINT_INI;
+	task_menu_dta.cfg.press_hysteresis = PRESS_HYSTERESIS_INI;
+	task_menu_dta.cfg.alarm_enable = ALARM_ENABLE_INI;
 
 	g_task_menu_tick_cnt = G_TASK_MEN_TICK_CNT_INI;
 }
@@ -166,7 +176,7 @@ void task_menu_update(void *parameters)
 		}
 		else
 		{
-			p_task_menu_dta->tick = DEL_MEN_XX_MAX;
+			p_task_menu_dta->tick = DEL_MEN_XX_MED;
 
 			if (true == any_event_task_menu())
 			{
@@ -176,234 +186,337 @@ void task_menu_update(void *parameters)
 
 			switch (p_task_menu_dta->state)
 			{
-				case ST_MEN_MAIN:
+				// ----------------------------------------------------------------
+			    // ESTADO 1: VISTA EN VIVO (IDLE)
+			    // ----------------------------------------------------------------
+			    case ST_MEN_IDLE_VIEW:
+			        // Aquí deberías leer shared_data para mostrar valores reales
+			        // Ejemplo simulado:
+			        //displayCharPositionWrite(0, 0);
+			        snprintf(menu_str, sizeof(menu_str), "T:%luC P:%luhPa ",
+			                 p_task_menu_dta->cfg.temp_setpoint, // Aquí iría temp_actual
+			                 p_task_menu_dta->cfg.press_setpoint); // Aquí iría press_actual
+			        printf("%s\n", menu_str);
+			        //displayStringWrite(menu_str);
 
+			        //displayCharPositionWrite(0, 1);
+			        //displayStringWrite("ENT p/ Config   ");
+			        printf("ENT p/ Config   \n");
 
-					for (uint32_t motor_idx = 0; motor_idx < NUM_MOTORS; motor_idx++)
-					{
-						const char *motor_power = p_task_menu_dta->motor_status[motor_idx].power == 0 ? "OFF" : " ON";
-						char        motor_spin  = p_task_menu_dta->motor_status[motor_idx].spin == SPIN_LEFT ? 'L' : 'R';
-						uint32_t    motor_speed = p_task_menu_dta->motor_status[motor_idx].speed;
+			        // Si presiona ENTER, va al menú principal
+			        if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+			        {
+			            p_task_menu_dta->flag = false;
+			            p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
+			            p_task_menu_dta->current_selection = 0; // Reset selección
+			        }
+			        break;
 
-						snprintf(menu_str, sizeof(menu_str), "Motor %lu: %s,%lu,%c", motor_idx + 1, motor_power, motor_speed, motor_spin);
-						displayCharPositionWrite(0, motor_idx);
-						displayStringWrite(menu_str);
-					}
+				// ----------------------------------------------------------------
+				// ESTADO 2: SELECCIÓN PRINCIPAL (Temp / Presion / Alarma)
+				// ----------------------------------------------------------------
+				case ST_MEN_MAIN_SELECT:
+					//displayCharPositionWrite(0, 0);
+					//displayStringWrite("Configurar:     ");
+					printf("Configurar:     \n");
 
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+					//displayCharPositionWrite(0, 1);
+					if (p_task_menu_dta->current_selection == 0)      printf("> Temperatura   \n");
+					else if (p_task_menu_dta->current_selection == 1) printf("> Presion       \n");
+					else if (p_task_menu_dta->current_selection == 2) printf("> Alarmas       \n");
+
+					if (true == p_task_menu_dta->flag)
 					{
 						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_SELECT_MOTOR;
-						p_task_menu_dta->motor = 0;
-						p_task_menu_dta->spin = 0;
-						p_task_menu_dta->power = 0;
-						p_task_menu_dta->speed = 0;
-					}
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							// Cíclico: 0 -> 1 -> 2 -> 0
+							p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 3;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->current_selection > 0)
+								p_task_menu_dta->current_selection--;
+							else
+								p_task_menu_dta->current_selection = 2;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							// Entrar a la rama correspondiente
+							if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+							else if (p_task_menu_dta->current_selection == 1) p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							else p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
 
+							p_task_menu_dta->current_selection = 0; // Reset para el submenú
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+						}
+					}
 					break;
 
-				case ST_MEN_SELECT_MOTOR:
+				// ----------------------------------------------------------------
+				// RAMA TEMPERATURA: SELECCIÓN (Setpoint vs Histéresis)
+				// ----------------------------------------------------------------
+				case ST_MEN_TEMP_SELECT:
+					//displayCharPositionWrite(0, 0);
+					//displayStringWrite("Conf. Temp:     ");
+					printf("Conf. Temp:     \n");
 
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
+					//displayCharPositionWrite(0, 1);
+					if (p_task_menu_dta->current_selection == 0)      printf("> Setpoint      \n");
+					else if (p_task_menu_dta->current_selection == 1) printf("> Histeresis    \n");
 
-					uint32_t motor = p_task_menu_dta->motor;
-
-					displayCharPositionWrite(0, 1);
-					snprintf(menu_str, sizeof(menu_str), "   > Motor %lu    ", motor + 1);
-					displayStringWrite(menu_str);
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+					if (true == p_task_menu_dta->flag)
 					{
 						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_POWER;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->motor = (p_task_menu_dta->motor + 1) % NUM_MOTORS;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MAIN;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
+						} else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->current_selection > 0)
+								p_task_menu_dta->current_selection--;
+							else
+								p_task_menu_dta->current_selection = 1;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_TEMP_SET;
+							else p_task_menu_dta->state = ST_MEN_MOD_TEMP_HYS;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->state = ST_MEN_MAIN_SELECT; // Volver atrás
+							p_task_menu_dta->current_selection = 0;
+						}
 					}
-
 					break;
 
-				case ST_MEN_PARAM_POWER:
+				// ----------------------------------------------------------------
+				// RAMA TEMPERATURA: MODIFICAR SETPOINT
+				// ----------------------------------------------------------------
+				case ST_MEN_MOD_TEMP_SET:
+					//displayCharPositionWrite(0, 0);
+					//displayStringWrite("Temp Setpoint:  ");
+					printf("Temp Setpoint:  \n");
 
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
+					//displayCharPositionWrite(0, 1);
+					// Muestra el valor actual que estamos editando
+					snprintf(menu_str, sizeof(menu_str), "Val: %lu C       ", p_task_menu_dta->cfg.temp_setpoint);
+					printf("%s\n", menu_str);
 
-					displayCharPositionWrite(0, 1);
-					displayStringWrite("    > Power     ");
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+					if (true == p_task_menu_dta->flag)
 					{
 						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MODIFY_POWER;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_SPEED;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_SELECT_MOTOR;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->cfg.temp_setpoint++;
+							if(p_task_menu_dta->cfg.temp_setpoint > TEMP_SETPOINT_MAX) p_task_menu_dta->cfg.temp_setpoint = 0;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->cfg.temp_setpoint > 0)
+								p_task_menu_dta->cfg.temp_setpoint--;
+							else
+								p_task_menu_dta->cfg.temp_setpoint = TEMP_SETPOINT_MAX;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							// Confirmar y volver
+							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// TODO: Cancelar y volver (opcionalmente podrías restaurar el valor viejo)
+							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+						}
 					}
-
 					break;
 
-				case ST_MEN_PARAM_SPEED:
+				// ----------------------------------------------------------------
+				// RAMA TEMPERATURA: MODIFICAR HISTÉRESIS
+				// ----------------------------------------------------------------
+				case ST_MEN_MOD_TEMP_HYS:
+					//displayCharPositionWrite(0, 0);
+					//displayStringWrite("Temp Histeresis:");
+					printf("Temp Histeresis:\n");
 
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
+					//displayCharPositionWrite(0, 1);
+					snprintf(menu_str, sizeof(menu_str), "Val: %lu C       ", p_task_menu_dta->cfg.temp_hysteresis);
+					printf("%s\n", menu_str);
 
-					displayCharPositionWrite(0, 1);
-					displayStringWrite("    > Speed     ");
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+					if (true == p_task_menu_dta->flag)
 					{
 						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MODIFY_SPEED;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_SPIN;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_SELECT_MOTOR;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->cfg.temp_hysteresis++;
+							if(p_task_menu_dta->cfg.temp_hysteresis > TEMP_HYSTERESIS_MAX) p_task_menu_dta->cfg.temp_hysteresis = 1;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->cfg.temp_hysteresis > 0)
+								p_task_menu_dta->cfg.temp_hysteresis--;
+							else
+								p_task_menu_dta->cfg.temp_hysteresis = TEMP_HYSTERESIS_MAX;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+						}
+						// TODO: lógica de escape
 					}
-
 					break;
 
-				case ST_MEN_PARAM_SPIN:
+					// ----------------------------------------------------------------
+					// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
+					// ----------------------------------------------------------------
+					case ST_MEN_PRESS_SELECT:
+						//displayCharPositionWrite(0, 0);
+						//displayStringWrite("Conf. Pres:     ");
+						printf("Conf. Pres:     \n");
 
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
+						//displayCharPositionWrite(0, 1);
+						if (p_task_menu_dta->current_selection == 0)      printf("> Setpoint      \n");
+						else if (p_task_menu_dta->current_selection == 1) printf("> Histeresis    \n");
 
-					displayCharPositionWrite(0, 1);
-					displayStringWrite("    > Spin      ");
+						if (true == p_task_menu_dta->flag)
+						{
+							p_task_menu_dta->flag = false;
+							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+							{
+								p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
+							}
+							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+							{
+								if (p_task_menu_dta->current_selection > 0)
+									p_task_menu_dta->current_selection--;
+								else
+									p_task_menu_dta->current_selection = 0;
+							}
+							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+							{
+								if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_PRESS_SET;
+								else p_task_menu_dta->state = ST_MEN_MOD_PRESS_HYS;
+							}
+							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+							{
+								p_task_menu_dta->state = ST_MEN_MAIN_SELECT; // Volver atrás
+								p_task_menu_dta->current_selection = 1;
+							}
+						}
+						break;
 
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+					// ----------------------------------------------------------------
+					// RAMA PRESIÓN: MODIFICAR SETPOINT
+					// ----------------------------------------------------------------
+					case ST_MEN_MOD_PRESS_SET:
+						//displayCharPositionWrite(0, 0);
+						//displayStringWrite("Temp Setpoint:  ");
+
+						//displayCharPositionWrite(0, 1);
+						// Muestra el valor actual que estamos editando
+						snprintf(menu_str, sizeof(menu_str), "Val: %lu hPa     ", p_task_menu_dta->cfg.press_setpoint);
+						printf("%s\n", menu_str);
+
+						if (true == p_task_menu_dta->flag)
+						{
+							p_task_menu_dta->flag = false;
+							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+							{
+								p_task_menu_dta->cfg.press_setpoint += 10;
+								if(p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_setpoint = 0;
+							}
+							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+							{
+								if (p_task_menu_dta->cfg.press_setpoint > 0)
+									p_task_menu_dta->cfg.press_setpoint -= 10;
+								else
+									p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MAX;
+							}
+							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+							{
+								// Confirmar y volver
+								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							}
+							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+							{
+								// TODO: Cancelar y volver (opcionalmente podrías restaurar el valor viejo)
+								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							}
+						}
+						break;
+
+					// ----------------------------------------------------------------
+					// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
+					// ----------------------------------------------------------------
+					case ST_MEN_MOD_PRESS_HYS:
+						//displayCharPositionWrite(0, 0);
+						//displayStringWrite("Temp Histeresis:");
+						displayStringWrite("Pres Histeresis:");
+
+						//displayCharPositionWrite(0, 1);
+						snprintf(menu_str, sizeof(menu_str), "Val: %lu hPa     ", p_task_menu_dta->cfg.press_hysteresis);
+						printf("%s\n", menu_str);
+
+						if (true == p_task_menu_dta->flag)
+						{
+							p_task_menu_dta->flag = false;
+							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+							{
+								p_task_menu_dta->cfg.press_hysteresis += 10;
+								if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MAX) p_task_menu_dta->cfg.press_hysteresis = 10;
+							}
+							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+							{
+								if (p_task_menu_dta->cfg.press_hysteresis > 10)
+									p_task_menu_dta->cfg.press_hysteresis -= 10;
+								else
+									p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
+							}
+							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+							{
+								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							}
+						}
+						break;
+
+				// ----------------------------------------------------------------
+				// RAMA ALARMAS: HABILITACIÓN
+				// ----------------------------------------------------------------
+				// TODO: falta la parte de select y considerar los valores de las alarmas además de si está activada
+				case ST_MEN_MOD_ALARM_EN:
+					 //displayCharPositionWrite(0, 0);
+					 //displayStringWrite("Alarma Activa?  ");
+					 printf("Alarma Activa?  \n");
+
+					 //displayCharPositionWrite(0, 1);
+					 if(p_task_menu_dta->cfg.alarm_enable) printf("> SI            \n");
+					 else                                  printf("> NO            \n");
+
+					 if (true == p_task_menu_dta->flag)
 					{
 						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MODIFY_SPIN;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_POWER;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_SELECT_MOTOR;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							// Toggle bool
+							p_task_menu_dta->cfg.alarm_enable = !p_task_menu_dta->cfg.alarm_enable;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+						}
 					}
-
 					break;
 
-				case ST_MEN_MODIFY_POWER:
-
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
-
-					const char *power = p_task_menu_dta->power == 0 ? "OFF" : " ON";
-
-					displayCharPositionWrite(0, 1);
-					snprintf(menu_str, sizeof(menu_str), "     > %s    ", power);
-					displayStringWrite(menu_str);
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MAIN;
-
-						uint32_t motor_idx = p_task_menu_dta->motor;
-
-						p_task_menu_dta->motor_status[motor_idx].power = p_task_menu_dta->power;
-						p_task_menu_dta->motor_status[motor_idx].speed = p_task_menu_dta->speed;
-						p_task_menu_dta->motor_status[motor_idx].spin = p_task_menu_dta->spin;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->power = (p_task_menu_dta->power + 1) % 2;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_POWER;
-					}
-
-					break;
-
-				case ST_MEN_MODIFY_SPEED:
-
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
-
-					uint32_t speed = p_task_menu_dta->speed;
-
-					displayCharPositionWrite(0, 1);
-					snprintf(menu_str, sizeof(menu_str), "      > %lu       ", speed);
-					displayStringWrite(menu_str);
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MAIN;
-
-						uint32_t motor_idx = p_task_menu_dta->motor;
-
-						p_task_menu_dta->motor_status[motor_idx].power = p_task_menu_dta->power;
-						p_task_menu_dta->motor_status[motor_idx].speed = p_task_menu_dta->speed;
-						p_task_menu_dta->motor_status[motor_idx].spin = p_task_menu_dta->spin;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->speed = (p_task_menu_dta->speed + 1) % (SPEED_MAX + 1);
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_SPEED;
-					}
-
-					break;
-
-				case ST_MEN_MODIFY_SPIN:
-
-					displayCharPositionWrite(0, 0);
-					displayStringWrite("ENT / NEX / ESC ");
-
-					const char *spin = p_task_menu_dta->spin == SPIN_LEFT ? " LEFT" : "RIGHT";
-
-					displayCharPositionWrite(0, 1);
-					snprintf(menu_str, sizeof(menu_str), "    > %s     ", spin);
-					displayStringWrite(menu_str);
-
-					if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_MAIN;
-
-						uint32_t motor_idx = p_task_menu_dta->motor;
-
-						p_task_menu_dta->motor_status[motor_idx].power = p_task_menu_dta->power;
-						p_task_menu_dta->motor_status[motor_idx].speed = p_task_menu_dta->speed;
-						p_task_menu_dta->motor_status[motor_idx].spin = p_task_menu_dta->spin;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->spin = (p_task_menu_dta->spin + 1) % 2;
-					} else if ((true == p_task_menu_dta->flag) && (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event))
-					{
-						p_task_menu_dta->flag = false;
-						p_task_menu_dta->state = ST_MEN_PARAM_SPIN;
-					}
-
-					break;
+				// TODO: cambiar valores de las alarmas
 
 				default:
 
 					p_task_menu_dta->tick  = DEL_MEN_XX_MAX;
-					p_task_menu_dta->state = ST_MEN_MAIN;
+					p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
 					p_task_menu_dta->event = EV_MEN_ENT_IDLE;
 					p_task_menu_dta->flag  = false;
 

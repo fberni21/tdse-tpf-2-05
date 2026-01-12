@@ -52,29 +52,52 @@ extern "C" {
 /********************** typedef **********************************************/
 
 /* Events to excite Task Menu */
+// TODO: revisar si tiene que ir acá o no
 typedef enum task_menu_ev {EV_MEN_ENT_IDLE,
 						   EV_MEN_ENT_ACTIVE,
 						   EV_MEN_NEX_IDLE,
 						   EV_MEN_NEX_ACTIVE,
+						   EV_MEN_PRE_IDLE,
+						   EV_MEN_PRE_ACTIVE,
 						   EV_MEN_ESC_IDLE,
-						   EV_MEN_ESC_ACTIVE} task_menu_ev_t;
+						   EV_MEN_ESC_ACTIVE,
+						   EV_MEN_ENABLE_IDLE,
+						   EV_MEN_ENABLE_ACTIVE} task_menu_ev_t;
 
 /* State of Task Menu */
-typedef enum task_menu_st {ST_MEN_MAIN,
-						   ST_MEN_SELECT_MOTOR,
-                           ST_MEN_PARAM_POWER,
-                           ST_MEN_PARAM_SPEED,
-                           ST_MEN_PARAM_SPIN,
-                           ST_MEN_MODIFY_POWER,
-                           ST_MEN_MODIFY_SPEED,
-                           ST_MEN_MODIFY_SPIN} task_menu_st_t;
+typedef enum task_menu_st {
+	ST_MEN_IDLE_VIEW,       // Pantalla principal: Muestra valores actuales (T y P)
+	ST_MEN_MAIN_SELECT,     // Menú Principal: Seleccionar Temp / Presión / Alarmas
+
+	// Rama Temperatura
+	ST_MEN_TEMP_SELECT,     // Submenú Temp: Setpoint o Histéresis
+	ST_MEN_MOD_TEMP_SET,    // Modificar Setpoint Temperatura
+	ST_MEN_MOD_TEMP_HYS,    // Modificar Histéresis Temperatura
+
+	// Rama Presión
+	ST_MEN_PRESS_SELECT,    // Submenú Presión: Setpoint o Histéresis
+	ST_MEN_MOD_PRESS_SET,   // Modificar Setpoint Presión
+	ST_MEN_MOD_PRESS_HYS,   // Modificar Histéresis Presión
+
+	// Rama Alarmas
+	ST_MEN_ALARM_SELECT,    // Submenú Alarmas: Limites o Habilitación
+	ST_MEN_MOD_ALARM_TLIM,  // Modificar Límite T
+	ST_MEN_MOD_ALARM_PLIM,  // Modificar Límite P
+	ST_MEN_MOD_ALARM_EN     // Habilitar/Deshabilitar Alarmas
+} task_menu_st_t;
 
 typedef struct
 {
-	uint32_t speed;
-	uint32_t spin;
-	uint32_t power;
-} motor_status_t;
+	uint32_t temp_setpoint;     // Temperatura objetivo
+	uint32_t temp_hysteresis;   // Margen de temperatura
+	uint32_t temp_alarm_limit;  // Límite para disparar alarma
+
+	uint32_t press_setpoint;    // Presión objetivo
+	uint32_t press_hysteresis;  // Margen de presión
+	uint32_t press_alarm_limit; // Límite para disparar alarma
+
+	bool     alarm_enable;      // Estado general de alarmas (ON/OFF)
+} system_config_t;
 
 typedef struct
 {
@@ -82,11 +105,8 @@ typedef struct
 	task_menu_st_t 	  state;
 	task_menu_ev_t	  event;
 	bool			  flag;
-	uint32_t          motor;
-	uint32_t          speed;
-	uint32_t          spin;
-	uint32_t          power;
-	motor_status_t    motor_status[NUM_MOTORS];
+	system_config_t	  cfg;
+	uint32_t          current_selection;
 } task_menu_dta_t;
 
 /********************** external data declaration ****************************/
