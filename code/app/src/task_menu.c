@@ -50,13 +50,15 @@
 #include "task_menu_attribute.h"
 #include "task_menu_interface.h"
 #include "display.h"
+#include "eeprom.h"
+#include "utils.h"
 
 /********************** macros and definitions *******************************/
 #define G_TASK_MEN_CNT_INI			0ul
 #define G_TASK_MEN_TICK_CNT_INI		0ul
 
 #define DEL_MEN_XX_MIN				0ul
-#define DEL_MEN_XX_MED				50ul
+#define DEL_MEN_XX_MED				100ul
 #define DEL_MEN_XX_MAX				500ul
 
 
@@ -64,7 +66,12 @@
 #define TEMP_HYSTERESIS_INI		2 		// celsius
 #define PRESS_SETPOINT_INI		1013 	// hPa
 #define PRESS_HYSTERESIS_INI	10 		// hPa
-#define ALARM_ENABLE_INI 		true
+#define ALARM_ENABLE_INI 		false
+
+#define TEMP_SETPOINT_MIN		0		// celsius
+#define TEMP_HYSTERESIS_MIN		1		// celsius
+#define PRESS_SETPOINT_MIN		0		// hPa
+#define PRESS_HYSTERESIS_MIN	10		// hPa
 
 #define TEMP_SETPOINT_MAX		80		// celsius
 #define TEMP_HYSTERESIS_MAX		10		// celsius
@@ -78,7 +85,11 @@ task_menu_dta_t task_menu_dta =
 
 #define MENU_DTA_QTY	(sizeof(task_menu_dta)/sizeof(task_menu_dta_t))
 
+#define MENU_CFG_ADDR 0
+
 /********************** internal functions declaration ***********************/
+
+void recover_saved_cfg();
 
 /********************** internal data definition *****************************/
 const char *p_task_menu 		= "Task Menu (Interactive Menu)";
@@ -95,6 +106,8 @@ void task_menu_init(void *parameters)
 	task_menu_st_t	state;
 	task_menu_ev_t	event;
 	bool b_event;
+
+	shared_data_type *p_shared_data = (shared_data_type*)parameters;
 
 	/* Print out: Task Initialized */
 	LOGGER_LOG("  %s is running - %s\r\n", GET_NAME(task_menu_init), p_task_menu);
@@ -125,11 +138,8 @@ void task_menu_init(void *parameters)
 
 	//displayInit( DISPLAY_CONNECTION_GPIO_4BITS );
 
-	task_menu_dta.cfg.temp_setpoint = TEMP_SETPOINT_INI;
-	task_menu_dta.cfg.temp_hysteresis = TEMP_HYSTERESIS_INI;
-	task_menu_dta.cfg.press_setpoint = PRESS_SETPOINT_INI;
-	task_menu_dta.cfg.press_hysteresis = PRESS_HYSTERESIS_INI;
-	task_menu_dta.cfg.alarm_enable = ALARM_ENABLE_INI;
+	recover_saved_cfg(&p_task_menu_dta->cfg);
+	p_shared_data->cfg = p_task_menu_dta->cfg;
 
 	g_task_menu_tick_cnt = G_TASK_MEN_TICK_CNT_INI;
 }
@@ -137,6 +147,9 @@ void task_menu_init(void *parameters)
 void task_menu_update(void *parameters)
 {
 	task_menu_dta_t *p_task_menu_dta;
+
+	shared_data_type *p_shared_data = (shared_data_type*)parameters;
+
 	bool b_time_update_required = false;
 	char menu_str[17];
 
@@ -190,25 +203,23 @@ void task_menu_update(void *parameters)
 			    // ESTADO 1: VISTA EN VIVO (IDLE)
 			    // ----------------------------------------------------------------
 			    case ST_MEN_IDLE_VIEW:
-			        // Aquí deberías leer shared_data para mostrar valores reales
-			        // Ejemplo simulado:
 			        //displayCharPositionWrite(0, 0);
 			        snprintf(menu_str, sizeof(menu_str), "T:%luC P:%luhPa ",
-			                 p_task_menu_dta->cfg.temp_setpoint, // Aquí iría temp_actual
-			                 p_task_menu_dta->cfg.press_setpoint); // Aquí iría press_actual
+			                 temp_raw_to_celsius(p_shared_data->temp_raw),
+							 press_raw_to_hPa(p_shared_data->pressure_raw));
 			        printf("%s\n", menu_str);
 			        //displayStringWrite(menu_str);
 
 			        //displayCharPositionWrite(0, 1);
 			        //displayStringWrite("ENT p/ Config   ");
-			        printf("ENT p/ Config   \n");
+			        printf("Enter p/ config\n");
 
 			        // Si presiona ENTER, va al menú principal
 			        if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
 			        {
 			            p_task_menu_dta->flag = false;
 			            p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
-			            p_task_menu_dta->current_selection = 0; // Reset selección
+			            p_task_menu_dta->current_selection = 0;
 			        }
 			        break;
 
@@ -242,16 +253,17 @@ void task_menu_update(void *parameters)
 						}
 						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 						{
-							// Entrar a la rama correspondiente
 							if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
 							else if (p_task_menu_dta->current_selection == 1) p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
 							else p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
 
-							p_task_menu_dta->current_selection = 0; // Reset para el submenú
+							p_task_menu_dta->current_selection = 0;
 						}
 						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 						{
+							// Volvemos al menú de vista en vivo y guardamos los cambios hechos en la EEPROM
 							p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+							eeprom_write(MENU_CFG_ADDR, &p_shared_data->cfg, sizeof(p_shared_data->cfg));
 						}
 					}
 					break;
@@ -288,7 +300,7 @@ void task_menu_update(void *parameters)
 						}
 						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 						{
-							p_task_menu_dta->state = ST_MEN_MAIN_SELECT; // Volver atrás
+							p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
 							p_task_menu_dta->current_selection = 0;
 						}
 					}
@@ -324,13 +336,15 @@ void task_menu_update(void *parameters)
 						}
 						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 						{
-							// Confirmar y volver
+							// Volvemos y guardamos el valor seteado
 							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+							p_shared_data->cfg.temp_setpoint = p_task_menu_dta->cfg.temp_setpoint;
 						}
 						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 						{
-							// TODO: Cancelar y volver (opcionalmente podrías restaurar el valor viejo)
+							// Volvemos y restauramos el valor anterior
 							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+							p_task_menu_dta->cfg.temp_setpoint = p_shared_data->cfg.temp_setpoint;
 						}
 					}
 					break;
@@ -362,11 +376,18 @@ void task_menu_update(void *parameters)
 							else
 								p_task_menu_dta->cfg.temp_hysteresis = TEMP_HYSTERESIS_MAX;
 						}
-						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 						{
+							// Volvemos y guardamos el valor seteado
 							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+							p_shared_data->cfg.temp_hysteresis = p_task_menu_dta->cfg.temp_hysteresis;
 						}
-						// TODO: lógica de escape
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y restauramos el valor anterior
+							p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+							p_task_menu_dta->cfg.temp_hysteresis = p_shared_data->cfg.temp_hysteresis;
+						}
 					}
 					break;
 
@@ -403,7 +424,7 @@ void task_menu_update(void *parameters)
 							}
 							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 							{
-								p_task_menu_dta->state = ST_MEN_MAIN_SELECT; // Volver atrás
+								p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
 								p_task_menu_dta->current_selection = 1;
 							}
 						}
@@ -438,13 +459,15 @@ void task_menu_update(void *parameters)
 							}
 							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 							{
-								// Confirmar y volver
+								// Volvemos y guardamos el valor seteado
 								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+								p_shared_data->cfg.press_setpoint = p_task_menu_dta->cfg.press_setpoint;
 							}
 							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 							{
-								// TODO: Cancelar y volver (opcionalmente podrías restaurar el valor viejo)
+								// Volvemos y restauramos el valor anterior
 								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+								p_task_menu_dta->cfg.press_setpoint = p_shared_data->cfg.press_setpoint;
 							}
 						}
 						break;
@@ -476,9 +499,17 @@ void task_menu_update(void *parameters)
 								else
 									p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
 							}
-							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 							{
+								// Volvemos y guardamos el valor seteado
 								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+								p_shared_data->cfg.press_hysteresis = p_task_menu_dta->cfg.press_hysteresis;
+							}
+							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+							{
+								// Volvemos y restauramos el valor anterior
+								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+								p_task_menu_dta->cfg.press_hysteresis = p_shared_data->cfg.press_hysteresis;
 							}
 						}
 						break;
@@ -504,9 +535,17 @@ void task_menu_update(void *parameters)
 							// Toggle bool
 							p_task_menu_dta->cfg.alarm_enable = !p_task_menu_dta->cfg.alarm_enable;
 						}
-						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event || EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 						{
+							// Volvemos y guardamos el valor seteado
 							p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+							p_shared_data->cfg.alarm_enable = p_task_menu_dta->cfg.alarm_enable;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y restauramos el valor anterior
+							p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+							p_task_menu_dta->cfg.alarm_enable = p_shared_data->cfg.alarm_enable;
 						}
 					}
 					break;
@@ -524,6 +563,43 @@ void task_menu_update(void *parameters)
 			}
 		}
 	}
+}
+
+void recover_saved_cfg(system_config_t *cfg)
+{
+	cfg->temp_setpoint = TEMP_SETPOINT_INI;
+	cfg->temp_hysteresis = TEMP_HYSTERESIS_INI;
+	cfg->press_setpoint = PRESS_SETPOINT_INI;
+	cfg->press_hysteresis = PRESS_HYSTERESIS_INI;
+	cfg->alarm_enable = ALARM_ENABLE_INI;
+
+	system_config_t saved_cfg = {0};
+	eeprom_read(MENU_CFG_ADDR, (void*)&saved_cfg, sizeof(saved_cfg));
+
+	// Solo usamos los datos de la EEPROM si tienen valores razonables. Si no, dejamos el valor por omisión.
+
+	// Temperatura
+	if (is_in_range(saved_cfg.temp_setpoint, TEMP_SETPOINT_MIN, TEMP_SETPOINT_MAX))
+		cfg->temp_setpoint = saved_cfg.temp_setpoint;
+
+	if (is_in_range(saved_cfg.temp_hysteresis, TEMP_HYSTERESIS_MIN, TEMP_HYSTERESIS_MAX))
+		cfg->temp_hysteresis = saved_cfg.temp_hysteresis;
+
+	if (is_in_range(saved_cfg.temp_alarm_limit, TEMP_SETPOINT_MIN, TEMP_SETPOINT_MAX))
+		cfg->temp_alarm_limit = saved_cfg.temp_alarm_limit;
+
+	// Presión
+	if (is_in_range(saved_cfg.press_setpoint, PRESS_SETPOINT_MIN, PRESS_SETPOINT_MAX))
+		cfg->press_setpoint = saved_cfg.press_setpoint;
+
+	if (is_in_range(saved_cfg.press_hysteresis, PRESS_HYSTERESIS_MIN, PRESS_HYSTERESIS_MAX))
+		cfg->press_hysteresis = saved_cfg.press_hysteresis;
+
+	if (is_in_range(saved_cfg.press_alarm_limit, PRESS_SETPOINT_MIN, PRESS_SETPOINT_MAX))
+		cfg->press_alarm_limit = saved_cfg.press_alarm_limit;
+
+	// Alarma
+	cfg->alarm_enable = saved_cfg.alarm_enable;
 }
 
 /********************** end of file ******************************************/

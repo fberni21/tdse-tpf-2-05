@@ -45,9 +45,9 @@ extern "C" {
 
 /********************** inclusions *******************************************/
 
-/********************** macros ***********************************************/
+#include "app.h"
 
-#define NUM_MOTORS 2
+/********************** macros ***********************************************/
 
 /********************** typedef **********************************************/
 
@@ -85,19 +85,6 @@ typedef enum task_menu_st {
 	ST_MEN_MOD_ALARM_PLIM,  // Modificar Límite P
 	ST_MEN_MOD_ALARM_EN     // Habilitar/Deshabilitar Alarmas
 } task_menu_st_t;
-
-typedef struct
-{
-	uint32_t temp_setpoint;     // Temperatura objetivo
-	uint32_t temp_hysteresis;   // Margen de temperatura
-	uint32_t temp_alarm_limit;  // Límite para disparar alarma
-
-	uint32_t press_setpoint;    // Presión objetivo
-	uint32_t press_hysteresis;  // Margen de presión
-	uint32_t press_alarm_limit; // Límite para disparar alarma
-
-	bool     alarm_enable;      // Estado general de alarmas (ON/OFF)
-} system_config_t;
 
 typedef struct
 {

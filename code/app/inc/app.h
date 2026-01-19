@@ -54,11 +54,26 @@ extern "C" {
 
 /********************** typedef **********************************************/
 
+typedef struct
+{
+	uint32_t temp_setpoint;     // Temperatura objetivo
+	uint32_t temp_hysteresis;   // Margen de temperatura
+	uint32_t temp_alarm_limit;  // Límite para disparar alarma
+
+	uint32_t press_setpoint;    // Presión objetivo
+	uint32_t press_hysteresis;  // Margen de presión
+	uint32_t press_alarm_limit; // Límite para disparar alarma
+
+	bool     alarm_enable;      // Estado general de alarmas (ON/OFF)
+} system_config_t;
+
 typedef struct {
 	bool     adc_end_of_conversion;
 	uint16_t temp_raw;
 	uint16_t pressure_raw;
 	uint16_t pwm_active;
+
+	system_config_t cfg;
 } shared_data_type;
 
 /********************** external data declaration ****************************/
