@@ -49,7 +49,7 @@
 #include "app.h"
 #include "task_menu_attribute.h"
 #include "task_menu_interface.h"
-#include "display.h"
+#include "lcd/I2C_LCD.h"
 #include "eeprom.h"
 #include "utils.h"
 
@@ -95,6 +95,8 @@ void recover_saved_cfg();
 const char *p_task_menu 		= "Task Menu (Interactive Menu)";
 const char *p_task_menu_ 		= "Non-Blocking & Update By Time Code";
 
+char menu_str[17] = {0};
+
 /********************** external data declaration ****************************/
 uint32_t g_task_menu_cnt;
 volatile uint32_t g_task_menu_tick_cnt;
@@ -136,10 +138,10 @@ void task_menu_init(void *parameters)
 	cycle_counter_init();
 	cycle_counter_reset();
 
-	//displayInit( DISPLAY_CONNECTION_GPIO_4BITS );
-
 	recover_saved_cfg(&p_task_menu_dta->cfg);
 	p_shared_data->cfg = p_task_menu_dta->cfg;
+
+	I2C_LCD_Init(I2C_LCD_1);
 
 	g_task_menu_tick_cnt = G_TASK_MEN_TICK_CNT_INI;
 }
@@ -151,7 +153,6 @@ void task_menu_update(void *parameters)
 	shared_data_type *p_shared_data = (shared_data_type*)parameters;
 
 	bool b_time_update_required = false;
-	char menu_str[17];
 
 	/* Update Task Menu Counter */
 	g_task_menu_cnt++;
@@ -203,16 +204,14 @@ void task_menu_update(void *parameters)
 			    // ESTADO 1: VISTA EN VIVO (IDLE)
 			    // ----------------------------------------------------------------
 			    case ST_MEN_IDLE_VIEW:
-			        //displayCharPositionWrite(0, 0);
-			        snprintf(menu_str, sizeof(menu_str), "T:%luC P:%luhPa ",
+			        I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+			        snprintf(menu_str, sizeof(menu_str), "%2lu \xDF""C | %4lu hPa",
 			                 temp_raw_to_celsius(p_shared_data->temp_raw),
 							 press_raw_to_hPa(p_shared_data->pressure_raw));
-			        printf("%s\n", menu_str);
-			        //displayStringWrite(menu_str);
+			        I2C_LCD_WriteString(I2C_LCD_1, menu_str);
 
-			        //displayCharPositionWrite(0, 1);
-			        //displayStringWrite("ENT p/ Config   ");
-			        printf("Enter p/ config\n");
+			        I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+			        I2C_LCD_WriteString(I2C_LCD_1, "Enter p/ config");
 
 			        // Si presiona ENTER, va al menú principal
 			        if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
@@ -227,14 +226,13 @@ void task_menu_update(void *parameters)
 				// ESTADO 2: SELECCIÓN PRINCIPAL (Temp / Presion / Alarma)
 				// ----------------------------------------------------------------
 				case ST_MEN_MAIN_SELECT:
-					//displayCharPositionWrite(0, 0);
-					//displayStringWrite("Configurar:     ");
-					printf("Configurar:     \n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+					I2C_LCD_WriteString(I2C_LCD_1, "Configurar:     ");
 
-					//displayCharPositionWrite(0, 1);
-					if (p_task_menu_dta->current_selection == 0)      printf("> Temperatura   \n");
-					else if (p_task_menu_dta->current_selection == 1) printf("> Presion       \n");
-					else if (p_task_menu_dta->current_selection == 2) printf("> Alarmas       \n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+					if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Temperatura   \n");
+					else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Presion       \n");
+					else if (p_task_menu_dta->current_selection == 2) I2C_LCD_WriteString(I2C_LCD_1, "> Alarmas       \n");
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -272,13 +270,12 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: SELECCIÓN (Setpoint vs Histéresis)
 				// ----------------------------------------------------------------
 				case ST_MEN_TEMP_SELECT:
-					//displayCharPositionWrite(0, 0);
-					//displayStringWrite("Conf. Temp:     ");
-					printf("Conf. Temp:     \n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+					I2C_LCD_WriteString(I2C_LCD_1, "Conf. Temp:     ");
 
-					//displayCharPositionWrite(0, 1);
-					if (p_task_menu_dta->current_selection == 0)      printf("> Setpoint      \n");
-					else if (p_task_menu_dta->current_selection == 1) printf("> Histeresis    \n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+					if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Setpoint      \n");
+					else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Histeresis    \n");
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -310,14 +307,13 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: MODIFICAR SETPOINT
 				// ----------------------------------------------------------------
 				case ST_MEN_MOD_TEMP_SET:
-					//displayCharPositionWrite(0, 0);
-					//displayStringWrite("Temp Setpoint:  ");
-					printf("Temp Setpoint:  \n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+					I2C_LCD_WriteString(I2C_LCD_1, "Temp Setpoint:  ");
 
-					//displayCharPositionWrite(0, 1);
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
 					// Muestra el valor actual que estamos editando
-					snprintf(menu_str, sizeof(menu_str), "Val: %lu C       ", p_task_menu_dta->cfg.temp_setpoint);
-					printf("%s\n", menu_str);
+					snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
+			        I2C_LCD_WriteString(I2C_LCD_1, menu_str);
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -353,13 +349,12 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: MODIFICAR HISTÉRESIS
 				// ----------------------------------------------------------------
 				case ST_MEN_MOD_TEMP_HYS:
-					//displayCharPositionWrite(0, 0);
-					//displayStringWrite("Temp Histeresis:");
-					printf("Temp Histeresis:\n");
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+					I2C_LCD_WriteString(I2C_LCD_1, "Temp Histeresis:");
 
-					//displayCharPositionWrite(0, 1);
-					snprintf(menu_str, sizeof(menu_str), "Val: %lu C       ", p_task_menu_dta->cfg.temp_hysteresis);
-					printf("%s\n", menu_str);
+					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+					snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
+					I2C_LCD_WriteString(I2C_LCD_1, menu_str);
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -395,13 +390,12 @@ void task_menu_update(void *parameters)
 					// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
 					// ----------------------------------------------------------------
 					case ST_MEN_PRESS_SELECT:
-						//displayCharPositionWrite(0, 0);
-						//displayStringWrite("Conf. Pres:     ");
-						printf("Conf. Pres:     \n");
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+						I2C_LCD_WriteString(I2C_LCD_1, "Conf. Pres:     ");
 
-						//displayCharPositionWrite(0, 1);
-						if (p_task_menu_dta->current_selection == 0)      printf("> Setpoint      \n");
-						else if (p_task_menu_dta->current_selection == 1) printf("> Histeresis    \n");
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+						if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Setpoint      \n");
+						else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Histeresis    \n");
 
 						if (true == p_task_menu_dta->flag)
 						{
@@ -434,13 +428,13 @@ void task_menu_update(void *parameters)
 					// RAMA PRESIÓN: MODIFICAR SETPOINT
 					// ----------------------------------------------------------------
 					case ST_MEN_MOD_PRESS_SET:
-						//displayCharPositionWrite(0, 0);
-						//displayStringWrite("Temp Setpoint:  ");
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+						I2C_LCD_WriteString(I2C_LCD_1, "Pres Setpoint:  ");
 
-						//displayCharPositionWrite(0, 1);
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
 						// Muestra el valor actual que estamos editando
-						snprintf(menu_str, sizeof(menu_str), "Val: %lu hPa     ", p_task_menu_dta->cfg.press_setpoint);
-						printf("%s\n", menu_str);
+						snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_setpoint);
+						I2C_LCD_WriteString(I2C_LCD_1,  menu_str);
 
 						if (true == p_task_menu_dta->flag)
 						{
@@ -476,13 +470,12 @@ void task_menu_update(void *parameters)
 					// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
 					// ----------------------------------------------------------------
 					case ST_MEN_MOD_PRESS_HYS:
-						//displayCharPositionWrite(0, 0);
-						//displayStringWrite("Temp Histeresis:");
-						displayStringWrite("Pres Histeresis:");
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+						I2C_LCD_WriteString(I2C_LCD_1, "Pres Histeresis:");
 
-						//displayCharPositionWrite(0, 1);
-						snprintf(menu_str, sizeof(menu_str), "Val: %lu hPa     ", p_task_menu_dta->cfg.press_hysteresis);
-						printf("%s\n", menu_str);
+						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+						snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_hysteresis);
+						I2C_LCD_WriteString(I2C_LCD_1, menu_str);
 
 						if (true == p_task_menu_dta->flag)
 						{
