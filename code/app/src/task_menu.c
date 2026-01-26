@@ -49,7 +49,7 @@
 #include "app.h"
 #include "task_menu_attribute.h"
 #include "task_menu_interface.h"
-#include "lcd/I2C_LCD.h"
+#include "task_display_interface.h"
 #include "eeprom.h"
 #include "utils.h"
 
@@ -135,13 +135,8 @@ void task_menu_init(void *parameters)
 	b_event = p_task_menu_dta->flag;
 	LOGGER_LOG("   %s = %s\r\n", GET_NAME(b_event), (b_event ? "true" : "false"));
 
-	cycle_counter_init();
-	cycle_counter_reset();
-
 	recover_saved_cfg(&p_task_menu_dta->cfg);
 	p_shared_data->cfg = p_task_menu_dta->cfg;
-
-	I2C_LCD_Init(I2C_LCD_1);
 
 	g_task_menu_tick_cnt = G_TASK_MEN_TICK_CNT_INI;
 }
@@ -181,7 +176,7 @@ void task_menu_update(void *parameters)
 		}
 		__asm("CPSIE i");	/* enable interrupts*/
 
-    	/* Update Task Menu Data Pointer */
+		/* Update Task Menu Data Pointer */
 		p_task_menu_dta = &task_menu_dta;
 
     	if (DEL_MEN_XX_MIN < p_task_menu_dta->tick)
@@ -190,7 +185,7 @@ void task_menu_update(void *parameters)
 		}
 		else
 		{
-			p_task_menu_dta->tick = DEL_MEN_XX_MED;
+			p_task_menu_dta->tick = DEL_MEN_XX_MAX;
 
 			if (true == any_event_task_menu())
 			{
@@ -204,14 +199,15 @@ void task_menu_update(void *parameters)
 			    // ESTADO 1: VISTA EN VIVO (IDLE)
 			    // ----------------------------------------------------------------
 			    case ST_MEN_IDLE_VIEW:
-			        I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+			        //I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
 			        snprintf(menu_str, sizeof(menu_str), "%2lu \xDF""C | %4lu hPa",
 			                 temp_raw_to_celsius(p_shared_data->temp_raw),
 							 press_raw_to_hPa(p_shared_data->pressure_raw));
-			        I2C_LCD_WriteString(I2C_LCD_1, menu_str);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
-			        I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-			        I2C_LCD_WriteString(I2C_LCD_1, "Enter p/ config");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			        put_cmd_task_display(CMD_DISP_WRITE_STR, "Enter p/ config");
 
 			        // Si presiona ENTER, va al menú principal
 			        if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
@@ -226,13 +222,13 @@ void task_menu_update(void *parameters)
 				// ESTADO 2: SELECCIÓN PRINCIPAL (Temp / Presion / Alarma)
 				// ----------------------------------------------------------------
 				case ST_MEN_MAIN_SELECT:
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-					I2C_LCD_WriteString(I2C_LCD_1, "Configurar:     ");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Configurar:     ");
 
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-					if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Temperatura   \n");
-					else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Presion       \n");
-					else if (p_task_menu_dta->current_selection == 2) I2C_LCD_WriteString(I2C_LCD_1, "> Alarmas       \n");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Temperatura   ");
+					else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Presion       ");
+					else if (p_task_menu_dta->current_selection == 2) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Alarmas       ");
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -270,12 +266,12 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: SELECCIÓN (Setpoint vs Histéresis)
 				// ----------------------------------------------------------------
 				case ST_MEN_TEMP_SELECT:
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-					I2C_LCD_WriteString(I2C_LCD_1, "Conf. Temp:     ");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Temp:     ");
 
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-					if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Setpoint      \n");
-					else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Histeresis    \n");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
+					else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    ");
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -307,13 +303,13 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: MODIFICAR SETPOINT
 				// ----------------------------------------------------------------
 				case ST_MEN_MOD_TEMP_SET:
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-					I2C_LCD_WriteString(I2C_LCD_1, "Temp Setpoint:  ");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Setpoint:  ");
 
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 					// Muestra el valor actual que estamos editando
 					snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
-			        I2C_LCD_WriteString(I2C_LCD_1, menu_str);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -349,12 +345,12 @@ void task_menu_update(void *parameters)
 				// RAMA TEMPERATURA: MODIFICAR HISTÉRESIS
 				// ----------------------------------------------------------------
 				case ST_MEN_MOD_TEMP_HYS:
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-					I2C_LCD_WriteString(I2C_LCD_1, "Temp Histeresis:");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Histeresis:");
 
-					I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 					snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
-					I2C_LCD_WriteString(I2C_LCD_1, menu_str);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 					if (true == p_task_menu_dta->flag)
 					{
@@ -386,126 +382,126 @@ void task_menu_update(void *parameters)
 					}
 					break;
 
-					// ----------------------------------------------------------------
-					// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
-					// ----------------------------------------------------------------
-					case ST_MEN_PRESS_SELECT:
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-						I2C_LCD_WriteString(I2C_LCD_1, "Conf. Pres:     ");
+				// ----------------------------------------------------------------
+				// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
+				// ----------------------------------------------------------------
+				case ST_MEN_PRESS_SELECT:
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Pres:     ");
 
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-						if (p_task_menu_dta->current_selection == 0)      I2C_LCD_WriteString(I2C_LCD_1, "> Setpoint      \n");
-						else if (p_task_menu_dta->current_selection == 1) I2C_LCD_WriteString(I2C_LCD_1, "> Histeresis    \n");
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      \n");
+					else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    \n");
 
-						if (true == p_task_menu_dta->flag)
+					if (true == p_task_menu_dta->flag)
+					{
+						p_task_menu_dta->flag = false;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 						{
-							p_task_menu_dta->flag = false;
-							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-							{
-								p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
-							}
-							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-							{
-								if (p_task_menu_dta->current_selection > 0)
-									p_task_menu_dta->current_selection--;
-								else
-									p_task_menu_dta->current_selection = 0;
-							}
-							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-							{
-								if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_PRESS_SET;
-								else p_task_menu_dta->state = ST_MEN_MOD_PRESS_HYS;
-							}
-							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-							{
-								p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
-								p_task_menu_dta->current_selection = 1;
-							}
+							p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
 						}
-						break;
-
-					// ----------------------------------------------------------------
-					// RAMA PRESIÓN: MODIFICAR SETPOINT
-					// ----------------------------------------------------------------
-					case ST_MEN_MOD_PRESS_SET:
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-						I2C_LCD_WriteString(I2C_LCD_1, "Pres Setpoint:  ");
-
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-						// Muestra el valor actual que estamos editando
-						snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_setpoint);
-						I2C_LCD_WriteString(I2C_LCD_1,  menu_str);
-
-						if (true == p_task_menu_dta->flag)
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
 						{
-							p_task_menu_dta->flag = false;
-							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-							{
-								p_task_menu_dta->cfg.press_setpoint += 10;
-								if(p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_setpoint = 0;
-							}
-							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-							{
-								if (p_task_menu_dta->cfg.press_setpoint > 0)
-									p_task_menu_dta->cfg.press_setpoint -= 10;
-								else
-									p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MAX;
-							}
-							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-							{
-								// Volvemos y guardamos el valor seteado
-								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-								p_shared_data->cfg.press_setpoint = p_task_menu_dta->cfg.press_setpoint;
-							}
-							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-							{
-								// Volvemos y restauramos el valor anterior
-								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-								p_task_menu_dta->cfg.press_setpoint = p_shared_data->cfg.press_setpoint;
-							}
+							if (p_task_menu_dta->current_selection > 0)
+								p_task_menu_dta->current_selection--;
+							else
+								p_task_menu_dta->current_selection = 0;
 						}
-						break;
-
-					// ----------------------------------------------------------------
-					// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
-					// ----------------------------------------------------------------
-					case ST_MEN_MOD_PRESS_HYS:
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-						I2C_LCD_WriteString(I2C_LCD_1, "Pres Histeresis:");
-
-						I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
-						snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_hysteresis);
-						I2C_LCD_WriteString(I2C_LCD_1, menu_str);
-
-						if (true == p_task_menu_dta->flag)
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 						{
-							p_task_menu_dta->flag = false;
-							if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-							{
-								p_task_menu_dta->cfg.press_hysteresis += 10;
-								if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MAX) p_task_menu_dta->cfg.press_hysteresis = 10;
-							}
-							else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-							{
-								if (p_task_menu_dta->cfg.press_hysteresis > 10)
-									p_task_menu_dta->cfg.press_hysteresis -= 10;
-								else
-									p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
-							}
-							else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-							{
-								// Volvemos y guardamos el valor seteado
-								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-								p_shared_data->cfg.press_hysteresis = p_task_menu_dta->cfg.press_hysteresis;
-							}
-							else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-							{
-								// Volvemos y restauramos el valor anterior
-								p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-								p_task_menu_dta->cfg.press_hysteresis = p_shared_data->cfg.press_hysteresis;
-							}
+							if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_PRESS_SET;
+							else p_task_menu_dta->state = ST_MEN_MOD_PRESS_HYS;
 						}
-						break;
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
+							p_task_menu_dta->current_selection = 1;
+						}
+					}
+					break;
+
+				// ----------------------------------------------------------------
+				// RAMA PRESIÓN: MODIFICAR SETPOINT
+				// ----------------------------------------------------------------
+				case ST_MEN_MOD_PRESS_SET:
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Setpoint:  ");
+
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					// Muestra el valor actual que estamos editando
+					snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_setpoint);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+					if (true == p_task_menu_dta->flag)
+					{
+						p_task_menu_dta->flag = false;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->cfg.press_setpoint += 10;
+							if(p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_setpoint = 0;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->cfg.press_setpoint > 0)
+								p_task_menu_dta->cfg.press_setpoint -= 10;
+							else
+								p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MAX;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y guardamos el valor seteado
+							p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							p_shared_data->cfg.press_setpoint = p_task_menu_dta->cfg.press_setpoint;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y restauramos el valor anterior
+							p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							p_task_menu_dta->cfg.press_setpoint = p_shared_data->cfg.press_setpoint;
+						}
+					}
+					break;
+
+				// ----------------------------------------------------------------
+				// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
+				// ----------------------------------------------------------------
+				case ST_MEN_MOD_PRESS_HYS:
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			    	put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Histeresis:");
+
+			    	put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_hysteresis);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+					if (true == p_task_menu_dta->flag)
+					{
+						p_task_menu_dta->flag = false;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->cfg.press_hysteresis += 10;
+							if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MAX) p_task_menu_dta->cfg.press_hysteresis = 10;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->cfg.press_hysteresis > 10)
+								p_task_menu_dta->cfg.press_hysteresis -= 10;
+							else
+								p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y guardamos el valor seteado
+							p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							p_shared_data->cfg.press_hysteresis = p_task_menu_dta->cfg.press_hysteresis;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y restauramos el valor anterior
+							p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+							p_task_menu_dta->cfg.press_hysteresis = p_shared_data->cfg.press_hysteresis;
+						}
+					}
+					break;
 
 				// ----------------------------------------------------------------
 				// RAMA ALARMAS: HABILITACIÓN
