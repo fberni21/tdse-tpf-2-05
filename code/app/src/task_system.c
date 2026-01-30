@@ -49,8 +49,12 @@
 #include "app.h"
 #include "task_system_attribute.h"
 #include "task_system_interface.h"
+#include "task_menu_interface.h"
+#include "task_menu_attribute.h"
 #include "task_actuator_attribute.h"
 #include "task_actuator_interface.h"
+
+#include <stdbool.h>
 
 /********************** macros and definitions *******************************/
 #define G_TASK_SYS_CNT_INI			0ul
@@ -62,11 +66,14 @@
 
 /********************** internal data declaration ****************************/
 task_system_dta_t task_system_dta =
-	{DEL_SYS_XX_MIN, ST_SYS_XX_IDLE, EV_SYS_XX_IDLE, false};
+	{DEL_SYS_XX_MIN, ST_SYS_MENU_MODE, EV_SYS_ENABLE_IDLE, false};
 
 #define SYSTEM_DTA_QTY	(sizeof(task_system_dta)/sizeof(task_system_dta_t))
 
 /********************** internal functions declaration ***********************/
+
+static bool is_menu_button_event(task_system_ev_t event);
+static task_menu_ev_t system_event_to_menu_event(task_system_ev_t system_ev);
 
 /********************** internal data definition *****************************/
 const char *p_task_system 		= "Task System (System Statechart)";
@@ -154,33 +161,87 @@ void task_system_update(void *parameters)
 
 		switch (p_task_system_dta->state)
 		{
-			case ST_SYS_XX_IDLE:
-
-				if ((true == p_task_system_dta->flag) && (EV_SYS_XX_ACTIVE == p_task_system_dta->event))
+			case ST_SYS_MENU_MODE:
+				if ((true == p_task_system_dta->flag) && is_menu_button_event(p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
-					put_event_task_actuator(EV_LED_XX_ON, ID_LED_A);
-					p_task_system_dta->state = ST_SYS_XX_ACTIVE;
+					task_menu_ev_t menu_ev = system_event_to_menu_event(p_task_system_dta->event);
+					put_event_task_menu(menu_ev);
+				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_EXIT_MENU == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					p_task_system_dta->state = ST_SYS_NORMAL_MODE;
 				}
 
 				break;
 
-			case ST_SYS_XX_ACTIVE:
-
-				if ((true == p_task_system_dta->flag) && (EV_SYS_XX_IDLE == p_task_system_dta->event))
+			case ST_SYS_NORMAL_MODE:
+				if ((true == p_task_system_dta->flag) && (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
-					put_event_task_actuator(EV_LED_XX_OFF, ID_LED_A);
-					p_task_system_dta->state = ST_SYS_XX_IDLE;
+					p_task_system_dta->state = ST_SYS_MENU_MODE;
+					put_event_task_menu(EV_MEN_ENT_ACTIVE);
 				}
-
 				break;
 
 			default:
-
 				break;
 		}
 	}
+}
+
+static bool is_menu_button_event(task_system_ev_t event)
+{
+	switch (event)
+	{
+	case EV_SYS_ENT_IDLE:
+    case EV_SYS_ENT_ACTIVE:
+	case EV_SYS_NEX_IDLE:
+	case EV_SYS_NEX_ACTIVE:
+	case EV_SYS_PRE_IDLE:
+	case EV_SYS_PRE_ACTIVE:
+	case EV_SYS_ESC_IDLE:
+	case EV_SYS_ESC_ACTIVE:
+		return true;
+	default:
+		return false;
+	}
+}
+
+static task_menu_ev_t system_event_to_menu_event(task_system_ev_t system_ev)
+{
+	task_menu_ev_t menu_ev;
+	switch (system_ev)
+	{
+	case EV_SYS_ENT_IDLE:
+		menu_ev = EV_MEN_ENT_IDLE;
+		break;
+	case EV_SYS_ENT_ACTIVE:
+		menu_ev = EV_MEN_ENT_ACTIVE;
+		break;
+	case EV_SYS_NEX_IDLE:
+		menu_ev = EV_MEN_NEX_IDLE;
+		break;
+	case EV_SYS_NEX_ACTIVE:
+		menu_ev = EV_MEN_NEX_ACTIVE;
+		break;
+	case EV_SYS_PRE_IDLE:
+		menu_ev = EV_MEN_PRE_IDLE;
+		break;
+	case EV_SYS_PRE_ACTIVE:
+		menu_ev = EV_MEN_PRE_ACTIVE;
+		break;
+	case EV_SYS_ESC_IDLE:
+		menu_ev = EV_MEN_ESC_IDLE;
+		break;
+	case EV_SYS_ESC_ACTIVE:
+		menu_ev = EV_MEN_ESC_ACTIVE;
+		break;
+	default:
+		break;
+	}
+	return menu_ev;
 }
 
 /********************** end of file ******************************************/

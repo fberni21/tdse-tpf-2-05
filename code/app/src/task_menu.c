@@ -49,6 +49,7 @@
 #include "app.h"
 #include "task_menu_attribute.h"
 #include "task_menu_interface.h"
+#include "task_system_interface.h"
 #include "task_display_interface.h"
 #include "eeprom.h"
 #include "utils.h"
@@ -64,19 +65,19 @@
 
 #define TEMP_SETPOINT_INI		25 		// celsius
 #define TEMP_HYSTERESIS_INI		2 		// celsius
-#define PRESS_SETPOINT_INI		1013 	// hPa
-#define PRESS_HYSTERESIS_INI	10 		// hPa
+#define PRESS_SETPOINT_INI		101 	// kPa
+#define PRESS_HYSTERESIS_INI	1 		// kPa
 #define ALARM_ENABLE_INI 		false
 
 #define TEMP_SETPOINT_MIN		0		// celsius
 #define TEMP_HYSTERESIS_MIN		1		// celsius
-#define PRESS_SETPOINT_MIN		0		// hPa
-#define PRESS_HYSTERESIS_MIN	10		// hPa
+#define PRESS_SETPOINT_MIN		0		// kPa
+#define PRESS_HYSTERESIS_MIN	1		// kPa
 
 #define TEMP_SETPOINT_MAX		80		// celsius
 #define TEMP_HYSTERESIS_MAX		10		// celsius
-#define PRESS_SETPOINT_MAX		1100	// hPa
-#define PRESS_HYSTERESIS_MAX	100		// hPa
+#define PRESS_SETPOINT_MAX		110		// kPa
+#define PRESS_HYSTERESIS_MAX	10		// kPa
 
 
 /********************** internal data declaration ****************************/
@@ -200,47 +201,336 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 
 		switch (p_task_menu_dta->state)
 		{
-			// ----------------------------------------------------------------
-			// ESTADO 1: VISTA EN VIVO (IDLE)
-			// ----------------------------------------------------------------
-			case ST_MEN_IDLE_VIEW:
-				//I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				snprintf(menu_str, sizeof(menu_str), "%2lu \xDF""C | %4lu hPa",
-						 temp_raw_to_celsius(p_shared_data->temp_raw),
-						 press_raw_to_hPa(p_shared_data->pressure_raw));
-				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+		// ----------------------------------------------------------------
+		// ESTADO 1: VISTA EN VIVO (IDLE)
+		// ----------------------------------------------------------------
+		case ST_MEN_IDLE_VIEW:
+			//I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			snprintf(menu_str, sizeof(menu_str), "%2lu \xDF""C | %3lu kPa",
+					 temp_raw_to_celsius(p_shared_data->temp_raw),
+					 press_raw_to_kPa(p_shared_data->pressure_raw));
+			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Enter p/ config");
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Enter p/ config");
 
-				// Si presiona ENTER, va al menú principal
-				if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+			// Si presiona ENTER, va al menú principal
+			if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
+			{
+				p_task_menu_dta->flag = false;
+				p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
+				p_task_menu_dta->current_selection = 0;
+			}
+			// Si no, volvemos al modo normal y para solo mostrar los valores actuales
+			else if (true == p_task_menu_dta->flag)
+			{
+				put_event_task_system(EV_SYS_EXIT_MENU);
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// ESTADO 2: SELECCIÓN PRINCIPAL (Temp / Presion / Alarma)
+		// ----------------------------------------------------------------
+		case ST_MEN_MAIN_SELECT:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Configurar:     ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Temperatura   ");
+			else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Presion       ");
+			else if (p_task_menu_dta->current_selection == 2) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Alarmas       ");
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 				{
-					p_task_menu_dta->flag = false;
+					// Cíclico: 0 -> 1 -> 2 -> 0
+					p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 3;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection > 0)
+						p_task_menu_dta->current_selection--;
+					else
+						p_task_menu_dta->current_selection = 2;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+					else if (p_task_menu_dta->current_selection == 1) p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+					else p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+
+					p_task_menu_dta->current_selection = 0;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos al menú de vista en vivo y guardamos los cambios hechos en la EEPROM
+					p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+					eeprom_write(MENU_CFG_ADDR, &p_shared_data->cfg, sizeof(p_shared_data->cfg));
+				}
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA TEMPERATURA: SELECCIÓN (Setpoint vs Histéresis)
+		// ----------------------------------------------------------------
+		case ST_MEN_TEMP_SELECT:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Temp:     ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
+			else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    ");
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
+				} else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection > 0)
+						p_task_menu_dta->current_selection--;
+					else
+						p_task_menu_dta->current_selection = 1;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_TEMP_SET;
+					else p_task_menu_dta->state = ST_MEN_MOD_TEMP_HYS;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
 					p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
 					p_task_menu_dta->current_selection = 0;
 				}
-				break;
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA TEMPERATURA: MODIFICAR SETPOINT
+		// ----------------------------------------------------------------
+		case ST_MEN_MOD_TEMP_SET:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Setpoint:  ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			// Muestra el valor actual que estamos editando
+			snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->cfg.temp_setpoint++;
+					if(p_task_menu_dta->cfg.temp_setpoint > TEMP_SETPOINT_MAX) p_task_menu_dta->cfg.temp_setpoint = TEMP_SETPOINT_MIN;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->cfg.temp_setpoint > TEMP_SETPOINT_MIN)
+						p_task_menu_dta->cfg.temp_setpoint--;
+					else
+						p_task_menu_dta->cfg.temp_setpoint = TEMP_SETPOINT_MAX;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y guardamos el valor seteado
+					p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+					p_shared_data->cfg.temp_setpoint = p_task_menu_dta->cfg.temp_setpoint;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y restauramos el valor anterior
+					p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+					p_task_menu_dta->cfg.temp_setpoint = p_shared_data->cfg.temp_setpoint;
+				}
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA TEMPERATURA: MODIFICAR HISTÉRESIS
+		// ----------------------------------------------------------------
+		case ST_MEN_MOD_TEMP_HYS:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Histeresis:");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->cfg.temp_hysteresis++;
+					if(p_task_menu_dta->cfg.temp_hysteresis > TEMP_HYSTERESIS_MAX) p_task_menu_dta->cfg.temp_hysteresis = TEMP_HYSTERESIS_MIN;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->cfg.temp_hysteresis > TEMP_HYSTERESIS_MIN)
+						p_task_menu_dta->cfg.temp_hysteresis--;
+					else
+						p_task_menu_dta->cfg.temp_hysteresis = TEMP_HYSTERESIS_MAX;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y guardamos el valor seteado
+					p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+					p_shared_data->cfg.temp_hysteresis = p_task_menu_dta->cfg.temp_hysteresis;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y restauramos el valor anterior
+					p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
+					p_task_menu_dta->cfg.temp_hysteresis = p_shared_data->cfg.temp_hysteresis;
+				}
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
+		// ----------------------------------------------------------------
+		case ST_MEN_PRESS_SELECT:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Pres:     ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
+			else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    ");
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection > 0)
+						p_task_menu_dta->current_selection--;
+					else
+						p_task_menu_dta->current_selection = 1;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_PRESS_SET;
+					else p_task_menu_dta->state = ST_MEN_MOD_PRESS_HYS;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
+					p_task_menu_dta->current_selection = 1;
+				}
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA PRESIÓN: MODIFICAR SETPOINT
+		// ----------------------------------------------------------------
+		case ST_MEN_MOD_PRESS_SET:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Setpoint:  ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			// Muestra el valor actual que estamos editando
+			snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_setpoint);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->cfg.press_setpoint++;
+					if(p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MIN;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MIN)
+						p_task_menu_dta->cfg.press_setpoint--;
+					else
+						p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MAX;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y guardamos el valor seteado
+					p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+					p_shared_data->cfg.press_setpoint = p_task_menu_dta->cfg.press_setpoint;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y restauramos el valor anterior
+					p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+					p_task_menu_dta->cfg.press_setpoint = p_shared_data->cfg.press_setpoint;
+				}
+			}
+			break;
+
+		// ----------------------------------------------------------------
+		// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
+		// ----------------------------------------------------------------
+		case ST_MEN_MOD_PRESS_HYS:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Histeresis:");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_hysteresis);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					p_task_menu_dta->cfg.press_hysteresis++;
+					if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MAX) p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MIN;
+				}
+				else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
+					if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MIN)
+						p_task_menu_dta->cfg.press_hysteresis--;
+					else
+						p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y guardamos el valor seteado
+					p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+					p_shared_data->cfg.press_hysteresis = p_task_menu_dta->cfg.press_hysteresis;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y restauramos el valor anterior
+					p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
+					p_task_menu_dta->cfg.press_hysteresis = p_shared_data->cfg.press_hysteresis;
+				}
+			}
+			break;
 
 			// ----------------------------------------------------------------
-			// ESTADO 2: SELECCIÓN PRINCIPAL (Temp / Presion / Alarma)
+			// RAMA ALARMAS: SELECCIÓN (Habilitación, Temp, Presión)
 			// ----------------------------------------------------------------
-			case ST_MEN_MAIN_SELECT:
+			case ST_MEN_ALARM_SELECT:
 				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Configurar:     ");
+				put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Alarmas:  ");
 
 				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Temperatura   ");
-				else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Presion       ");
-				else if (p_task_menu_dta->current_selection == 2) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Alarmas       ");
+				if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Habilitacion  ");
+				else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Limite Temp.  ");
+				else if (p_task_menu_dta->current_selection == 2) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Limite Pres.  ");
 
 				if (true == p_task_menu_dta->flag)
 				{
 					p_task_menu_dta->flag = false;
 					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 					{
-						// Cíclico: 0 -> 1 -> 2 -> 0
 						p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 3;
 					}
 					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
@@ -252,68 +542,61 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 					}
 					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 					{
-						if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
-						else if (p_task_menu_dta->current_selection == 1) p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-						else p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
-
-						p_task_menu_dta->current_selection = 0;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos al menú de vista en vivo y guardamos los cambios hechos en la EEPROM
-						p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
-						eeprom_write(MENU_CFG_ADDR, &p_shared_data->cfg, sizeof(p_shared_data->cfg));
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA TEMPERATURA: SELECCIÓN (Setpoint vs Histéresis)
-			// ----------------------------------------------------------------
-			case ST_MEN_TEMP_SELECT:
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Temp:     ");
-
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
-				else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    ");
-
-				if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
-					} else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->current_selection > 0)
-							p_task_menu_dta->current_selection--;
-						else
-							p_task_menu_dta->current_selection = 1;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_TEMP_SET;
-						else p_task_menu_dta->state = ST_MEN_MOD_TEMP_HYS;
+						if (p_task_menu_dta->current_selection == 0)      p_task_menu_dta->state = ST_MEN_MOD_ALARM_EN;
+						else if (p_task_menu_dta->current_selection == 1) p_task_menu_dta->state = ST_MEN_MOD_ALARM_TLIM;
+						else if (p_task_menu_dta->current_selection == 2) p_task_menu_dta->state = ST_MEN_MOD_ALARM_PLIM;
 					}
 					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 					{
 						p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
-						p_task_menu_dta->current_selection = 0;
+						p_task_menu_dta->current_selection = 2;
 					}
 				}
 				break;
 
+		// ----------------------------------------------------------------
+		// RAMA ALARMAS: HABILITACIÓN
+		// ----------------------------------------------------------------
+		case ST_MEN_MOD_ALARM_EN:
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Alarma activa?  ");
+
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			if (p_task_menu_dta->cfg.alarm_enable) put_cmd_task_display(CMD_DISP_WRITE_STR, "> SI            \n");
+			else                                   put_cmd_task_display(CMD_DISP_WRITE_STR, "> NO            \n");
+
+			if (true == p_task_menu_dta->flag)
+			{
+				p_task_menu_dta->flag = false;
+				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+				{
+					// Toggle bool
+					p_task_menu_dta->cfg.alarm_enable = !p_task_menu_dta->cfg.alarm_enable;
+				}
+				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y guardamos el valor seteado
+					p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+					p_shared_data->cfg.alarm_enable = p_task_menu_dta->cfg.alarm_enable;
+				}
+				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+				{
+					// Volvemos y restauramos el valor anterior
+					p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+					p_task_menu_dta->cfg.alarm_enable = p_shared_data->cfg.alarm_enable;
+				}
+			}
+			break;
+
 			// ----------------------------------------------------------------
-			// RAMA TEMPERATURA: MODIFICAR SETPOINT
+			// RAMA ALARMAS: MODIFICAR LÍMITE DE TEMP
 			// ----------------------------------------------------------------
-			case ST_MEN_MOD_TEMP_SET:
+			case ST_MEN_MOD_ALARM_TLIM:
 				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Setpoint:  ");
+				put_cmd_task_display(CMD_DISP_WRITE_STR, "Limite Temp:    ");
 
 				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				// Muestra el valor actual que estamos editando
-				snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
+				snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_alarm_limit);
 				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 				if (true == p_task_menu_dta->flag)
@@ -321,239 +604,79 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 					p_task_menu_dta->flag = false;
 					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 					{
-						p_task_menu_dta->cfg.temp_setpoint++;
-						if(p_task_menu_dta->cfg.temp_setpoint > TEMP_SETPOINT_MAX) p_task_menu_dta->cfg.temp_setpoint = 0;
+						p_task_menu_dta->cfg.temp_alarm_limit++;
+						if (p_task_menu_dta->cfg.temp_alarm_limit > TEMP_SETPOINT_MAX) p_task_menu_dta->cfg.temp_alarm_limit = TEMP_SETPOINT_MIN;
 					}
 					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
 					{
-						if (p_task_menu_dta->cfg.temp_setpoint > 0)
-							p_task_menu_dta->cfg.temp_setpoint--;
+						if (p_task_menu_dta->cfg.temp_alarm_limit > TEMP_SETPOINT_MIN)
+							p_task_menu_dta->cfg.temp_alarm_limit--;
 						else
-							p_task_menu_dta->cfg.temp_setpoint = TEMP_SETPOINT_MAX;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y guardamos el valor seteado
-						p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
-						p_shared_data->cfg.temp_setpoint = p_task_menu_dta->cfg.temp_setpoint;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y restauramos el valor anterior
-						p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
-						p_task_menu_dta->cfg.temp_setpoint = p_shared_data->cfg.temp_setpoint;
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA TEMPERATURA: MODIFICAR HISTÉRESIS
-			// ----------------------------------------------------------------
-			case ST_MEN_MOD_TEMP_HYS:
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Histeresis:");
-
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
-
-				if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->cfg.temp_hysteresis++;
-						if(p_task_menu_dta->cfg.temp_hysteresis > TEMP_HYSTERESIS_MAX) p_task_menu_dta->cfg.temp_hysteresis = 1;
-					}
-					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->cfg.temp_hysteresis > 0)
-							p_task_menu_dta->cfg.temp_hysteresis--;
-						else
-							p_task_menu_dta->cfg.temp_hysteresis = TEMP_HYSTERESIS_MAX;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y guardamos el valor seteado
-						p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
-						p_shared_data->cfg.temp_hysteresis = p_task_menu_dta->cfg.temp_hysteresis;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y restauramos el valor anterior
-						p_task_menu_dta->state = ST_MEN_TEMP_SELECT;
-						p_task_menu_dta->cfg.temp_hysteresis = p_shared_data->cfg.temp_hysteresis;
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA PRESIÓN: SELECCIÓN (Setpoint vs Histéresis)
-			// ----------------------------------------------------------------
-			case ST_MEN_PRESS_SELECT:
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Pres:     ");
-
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      \n");
-				else if (p_task_menu_dta->current_selection == 1) put_cmd_task_display(CMD_DISP_WRITE_STR, "> Histeresis    \n");
-
-				if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->current_selection = (p_task_menu_dta->current_selection + 1) % 2;
-					}
-					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->current_selection > 0)
-							p_task_menu_dta->current_selection--;
-						else
-							p_task_menu_dta->current_selection = 0;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->current_selection == 0) p_task_menu_dta->state = ST_MEN_MOD_PRESS_SET;
-						else p_task_menu_dta->state = ST_MEN_MOD_PRESS_HYS;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
-						p_task_menu_dta->current_selection = 1;
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA PRESIÓN: MODIFICAR SETPOINT
-			// ----------------------------------------------------------------
-			case ST_MEN_MOD_PRESS_SET:
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Setpoint:  ");
-
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				// Muestra el valor actual que estamos editando
-				snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_setpoint);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
-
-				if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->cfg.press_setpoint += 10;
-						if(p_task_menu_dta->cfg.press_setpoint > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_setpoint = 0;
-					}
-					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->cfg.press_setpoint > 0)
-							p_task_menu_dta->cfg.press_setpoint -= 10;
-						else
-							p_task_menu_dta->cfg.press_setpoint = PRESS_SETPOINT_MAX;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y guardamos el valor seteado
-						p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-						p_shared_data->cfg.press_setpoint = p_task_menu_dta->cfg.press_setpoint;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y restauramos el valor anterior
-						p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-						p_task_menu_dta->cfg.press_setpoint = p_shared_data->cfg.press_setpoint;
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA PRESIÓN: MODIFICAR HISTÉRESIS
-			// ----------------------------------------------------------------
-			case ST_MEN_MOD_PRESS_HYS:
-				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Histeresis:");
-
-				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				snprintf(menu_str, sizeof(menu_str), "Val: %4lu hPa   ", p_task_menu_dta->cfg.press_hysteresis);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
-
-				if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						p_task_menu_dta->cfg.press_hysteresis += 10;
-						if (p_task_menu_dta->cfg.press_hysteresis > PRESS_HYSTERESIS_MAX) p_task_menu_dta->cfg.press_hysteresis = 10;
-					}
-					else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
-					{
-						if (p_task_menu_dta->cfg.press_hysteresis > 10)
-							p_task_menu_dta->cfg.press_hysteresis -= 10;
-						else
-							p_task_menu_dta->cfg.press_hysteresis = PRESS_HYSTERESIS_MAX;
-					}
-					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y guardamos el valor seteado
-						p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-						p_shared_data->cfg.press_hysteresis = p_task_menu_dta->cfg.press_hysteresis;
-					}
-					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
-					{
-						// Volvemos y restauramos el valor anterior
-						p_task_menu_dta->state = ST_MEN_PRESS_SELECT;
-						p_task_menu_dta->cfg.press_hysteresis = p_shared_data->cfg.press_hysteresis;
-					}
-				}
-				break;
-
-			// ----------------------------------------------------------------
-			// RAMA ALARMAS: HABILITACIÓN
-			// ----------------------------------------------------------------
-			// TODO: falta la parte de select y considerar los valores de las alarmas además de si está activada
-			case ST_MEN_MOD_ALARM_EN:
-				 //displayCharPositionWrite(0, 0);
-				 //displayStringWrite("Alarma Activa?  ");
-				 printf("Alarma Activa?  \n");
-
-				 //displayCharPositionWrite(0, 1);
-				 if(p_task_menu_dta->cfg.alarm_enable) printf("> SI            \n");
-				 else                                  printf("> NO            \n");
-
-				 if (true == p_task_menu_dta->flag)
-				{
-					p_task_menu_dta->flag = false;
-					if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
-					{
-						// Toggle bool
-						p_task_menu_dta->cfg.alarm_enable = !p_task_menu_dta->cfg.alarm_enable;
+							p_task_menu_dta->cfg.temp_alarm_limit = TEMP_SETPOINT_MAX;
 					}
 					else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 					{
 						// Volvemos y guardamos el valor seteado
 						p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
-						p_shared_data->cfg.alarm_enable = p_task_menu_dta->cfg.alarm_enable;
+						p_shared_data->cfg.temp_alarm_limit = p_task_menu_dta->cfg.temp_alarm_limit;
 					}
 					else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 					{
 						// Volvemos y restauramos el valor anterior
 						p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
-						p_task_menu_dta->cfg.alarm_enable = p_shared_data->cfg.alarm_enable;
+						p_task_menu_dta->cfg.temp_alarm_limit = p_shared_data->cfg.temp_alarm_limit;
 					}
 				}
 				break;
+				// ----------------------------------------------------------------
+				// RAMA ALARMAS: MODIFICAR LÍMITE DE PRES
+				// ----------------------------------------------------------------
+				case ST_MEN_MOD_ALARM_PLIM:
+					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, "Limite Pres:    ");
 
-			// TODO: cambiar valores de las alarmas
+					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_alarm_limit);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
-			default:
+					if (true == p_task_menu_dta->flag)
+					{
+						p_task_menu_dta->flag = false;
+						if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
+						{
+							p_task_menu_dta->cfg.press_alarm_limit++;
+							if (p_task_menu_dta->cfg.press_alarm_limit > PRESS_SETPOINT_MAX) p_task_menu_dta->cfg.press_alarm_limit = PRESS_SETPOINT_MIN;
+						}
+						else if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+						{
+							if (p_task_menu_dta->cfg.press_alarm_limit > PRESS_SETPOINT_MIN)
+								p_task_menu_dta->cfg.press_alarm_limit--;
+							else
+								p_task_menu_dta->cfg.press_alarm_limit = PRESS_SETPOINT_MIN;
+						}
+						else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y guardamos el valor seteado
+							p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+							p_shared_data->cfg.press_alarm_limit = p_task_menu_dta->cfg.press_alarm_limit;
+						}
+						else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
+						{
+							// Volvemos y restauramos el valor anterior
+							p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
+							p_task_menu_dta->cfg.press_alarm_limit = p_shared_data->cfg.press_alarm_limit;
+						}
+					}
+					break;
 
-				p_task_menu_dta->tick  = DEL_MEN_XX_MAX;
-				p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
-				p_task_menu_dta->event = EV_MEN_ENT_IDLE;
-				p_task_menu_dta->flag  = false;
+		default:
 
-				break;
+			p_task_menu_dta->tick  = DEL_MEN_XX_MAX;
+			p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+			p_task_menu_dta->event = EV_MEN_ENT_IDLE;
+			p_task_menu_dta->flag  = false;
+
+			break;
 		}
 	}
 }

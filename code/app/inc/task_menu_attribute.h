@@ -60,9 +60,7 @@ typedef enum task_menu_ev {EV_MEN_ENT_IDLE,
 						   EV_MEN_PRE_IDLE,
 						   EV_MEN_PRE_ACTIVE,
 						   EV_MEN_ESC_IDLE,
-						   EV_MEN_ESC_ACTIVE,
-						   EV_MEN_ENABLE_IDLE,
-						   EV_MEN_ENABLE_ACTIVE} task_menu_ev_t;
+						   EV_MEN_ESC_ACTIVE,} task_menu_ev_t;
 
 /* State of Task Menu */
 typedef enum task_menu_st {

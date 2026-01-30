@@ -48,26 +48,23 @@ extern "C" {
 /********************** macros ***********************************************/
 
 /********************** typedef **********************************************/
-/* System Statechart - State Transition Table */
-/* 	------------------------+-----------------------+-----------------------+-----------------------+------------------------
- * 	| Current               | Event                 |                       | Next                  |                       |
- * 	| State                 | (Parameters)          | [Guard]               | State                 | Actions               |
- * 	|=======================+=======================+=======================+=======================+=======================|
- * 	| ST_SYS_XX_IDLE        | EV_SYS_XX_ACTIVE      |                       | ST_SYS_XX_ACTIVE      | put_event_t.._actuator|
- * 	|                       |                       |                       |                       | (event, identifier)   |
- * 	|-----------------------+-----------------------+-----------------------+-----------------------+-----------------------|
- * 	| ST_SYS_XX_ACTIVE      | EV_SYS_XX_IDLE        |                       | ST_SYS_XX_IDLE        | put_event_t.._actuator|
- * 	|                       |                       |                       |                       | (event, identifier)   |
- * 	------------------------+-----------------------+-----------------------+-----------------------+------------------------
- */
 
 /* Events to excite Task System */
-typedef enum task_system_ev {EV_SYS_XX_IDLE,
-							 EV_SYS_XX_ACTIVE} task_system_ev_t;
+typedef enum task_system_ev {EV_SYS_ENT_IDLE,
+						     EV_SYS_ENT_ACTIVE,
+							 EV_SYS_NEX_IDLE,
+							 EV_SYS_NEX_ACTIVE,
+							 EV_SYS_PRE_IDLE,
+							 EV_SYS_PRE_ACTIVE,
+							 EV_SYS_ESC_IDLE,
+							 EV_SYS_ESC_ACTIVE,
+							 EV_SYS_ENABLE_IDLE,
+							 EV_SYS_ENABLE_ACTIVE,
+							 EV_SYS_EXIT_MENU} task_system_ev_t;
 
 /* State of Task System */
-typedef enum task_system_st {ST_SYS_XX_IDLE,
-							 ST_SYS_XX_ACTIVE} task_system_st_t;
+typedef enum task_system_st {ST_SYS_MENU_MODE,
+							 ST_SYS_NORMAL_MODE} task_system_st_t;
 
 typedef struct
 {

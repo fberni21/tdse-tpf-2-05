@@ -27,7 +27,7 @@ extern "C" {
 bool is_in_range(uint32_t value, uint32_t min, uint32_t max);
 
 uint32_t temp_raw_to_celsius(uint32_t temp_raw);
-uint32_t press_raw_to_hPa(uint32_t press_raw);
+uint32_t press_raw_to_kPa(uint32_t press_raw);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

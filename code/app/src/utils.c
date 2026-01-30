@@ -13,7 +13,7 @@
 /********************** macros and definitions *******************************/
 
 #define TEMP_SENSOR_MAX		100		// celsius
-#define PRESS_SENSOR_MAX	1100	// hPa
+#define PRESS_SENSOR_MAX	110		// kPa
 
 /********************** internal data declaration ****************************/
 
@@ -35,7 +35,7 @@ uint32_t temp_raw_to_celsius(uint32_t temp_raw)
 	return (temp_raw * TEMP_SENSOR_MAX) / ADC_MAX_VALUE;
 }
 
-uint32_t press_raw_to_hPa(uint32_t press_raw)
+uint32_t press_raw_to_kPa(uint32_t press_raw)
 {
 	return (press_raw * PRESS_SENSOR_MAX) / ADC_MAX_VALUE;
 }

@@ -47,8 +47,6 @@
 /* Application & Tasks includes. */
 #include "board.h"
 #include "app.h"
-#include "task_menu_attribute.h"
-#include "task_menu_interface.h"
 #include "task_sensor_attribute.h"
 #include "task_system_attribute.h"
 #include "task_system_interface.h"
@@ -64,15 +62,15 @@
 /********************** internal data declaration ****************************/
 const task_sensor_cfg_t task_sensor_cfg_list[] = {
     {ID_BTN_A,  BTN_ENT_PORT,  BTN_ENT_PIN,  BTN_ENT_PRESSED, DEL_BTN_XX_MAX,
-     EV_MEN_ENT_IDLE,  EV_MEN_ENT_ACTIVE},
+     EV_SYS_ENT_IDLE,  EV_SYS_ENT_ACTIVE},
     {ID_BTN_B,  BTN_PRE_PORT,  BTN_PRE_PIN,  BTN_PRE_PRESSED, DEL_BTN_XX_MAX,
-     EV_MEN_PRE_IDLE,  EV_MEN_PRE_ACTIVE},
+     EV_SYS_PRE_IDLE,  EV_SYS_PRE_ACTIVE},
 	{ID_BTN_C,  BTN_NEX_PORT,  BTN_NEX_PIN,  BTN_NEX_PRESSED, DEL_BTN_XX_MAX,
-	 EV_MEN_NEX_IDLE,  EV_MEN_NEX_ACTIVE},
+	 EV_SYS_NEX_IDLE,  EV_SYS_NEX_ACTIVE},
 	{ID_BTN_D,  BTN_ESC_PORT,  BTN_ESC_PIN,  BTN_ESC_PRESSED, DEL_BTN_XX_MAX,
-	 EV_MEN_ESC_IDLE,  EV_MEN_ESC_ACTIVE},
+	 EV_SYS_ESC_IDLE,  EV_SYS_ESC_ACTIVE},
 	{ID_BTN_E,  SW_ENABLE_PORT,  SW_ENABLE_PIN,  SW_ENABLE_ON, DEL_BTN_XX_MAX,
-	 EV_MEN_ENABLE_IDLE,  EV_MEN_ENABLE_ACTIVE},
+	 EV_SYS_ENABLE_IDLE,  EV_SYS_ENABLE_ACTIVE},
 };
 
 #define SENSOR_CFG_QTY	(sizeof(task_sensor_cfg_list)/sizeof(task_sensor_cfg_t))
@@ -208,7 +206,7 @@ void task_sensor_statechart()
 				}
 				else
 				{
-					put_event_task_menu(p_task_sensor_cfg->signal_down);
+					put_event_task_system(p_task_sensor_cfg->signal_down);
 					p_task_sensor_dta->state = ST_BTN_XX_DOWN;
 				}
 			}
@@ -220,7 +218,7 @@ void task_sensor_statechart()
 				}
 				else
 				{
-					put_event_task_menu(p_task_sensor_cfg->signal_up);
+					put_event_task_system(p_task_sensor_cfg->signal_up);
 					p_task_sensor_dta->state = ST_BTN_XX_UP;
 				}
 			}
@@ -244,7 +242,7 @@ void task_sensor_statechart()
 				}
 				else
 				{
-					put_event_task_menu(p_task_sensor_cfg->signal_down);
+					put_event_task_system(p_task_sensor_cfg->signal_down);
 					p_task_sensor_dta->state = ST_BTN_XX_DOWN;
 				}
 			}
@@ -256,7 +254,7 @@ void task_sensor_statechart()
 				}
 				else
 				{
-					put_event_task_menu(p_task_sensor_cfg->signal_up);
+					put_event_task_system(p_task_sensor_cfg->signal_up);
 					p_task_sensor_dta->state = ST_BTN_XX_UP;
 				}
 			}
