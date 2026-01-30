@@ -48,6 +48,7 @@
 #include "board.h"
 #include "app.h"
 #include "task_menu_attribute.h"
+#include "task_menu_interface.h"
 #include "task_sensor_attribute.h"
 #include "task_system_attribute.h"
 #include "task_system_interface.h"
@@ -87,6 +88,8 @@ task_sensor_dta_t task_sensor_dta_list[] = {
 #define SENSOR_DTA_QTY	(sizeof(task_sensor_dta_list)/sizeof(task_sensor_dta_t))
 
 /********************** internal functions declaration ***********************/
+
+void task_sensor_statechart();
 
 /********************** internal data definition *****************************/
 const char *p_task_sensor 		= "Task Sensor (Sensor Statechart)";
@@ -130,11 +133,9 @@ void task_sensor_init(void *parameters)
 	g_task_sensor_tick_cnt = G_TASK_SEN_TICK_CNT_INI;
 }
 
+
 void task_sensor_update(void *parameters)
 {
-	uint32_t index;
-	const task_sensor_cfg_t *p_task_sensor_cfg;
-	task_sensor_dta_t *p_task_sensor_dta;
 	bool b_time_update_required = false;
 
 	/* Update Task Sensor Counter */
@@ -164,105 +165,107 @@ void task_sensor_update(void *parameters)
 		}
 		__asm("CPSIE i");	/* enable interrupts*/
 
-    	for (index = 0; SENSOR_DTA_QTY > index; index++)
-		{
-    		/* Update Task Sensor Configuration & Data Pointer */
-			p_task_sensor_cfg = &task_sensor_cfg_list[index];
-			p_task_sensor_dta = &task_sensor_dta_list[index];
-
-			if (p_task_sensor_cfg->pressed == HAL_GPIO_ReadPin(p_task_sensor_cfg->gpio_port, p_task_sensor_cfg->pin))
-			{
-				p_task_sensor_dta->event =	EV_BTN_XX_DOWN;
-			}
-			else
-			{
-				p_task_sensor_dta->event =	EV_BTN_XX_UP;
-			}
-
-			switch (p_task_sensor_dta->state)
-			{
-				case ST_BTN_XX_UP:
-
-					if (EV_BTN_XX_DOWN == p_task_sensor_dta->event)
-					{
-						p_task_sensor_dta->state = ST_BTN_XX_FALLING;
-						p_task_sensor_dta->tick = p_task_sensor_cfg->tick_max;
-					}
-
-					break;
-
-				case ST_BTN_XX_FALLING:
-
-					if (EV_BTN_XX_DOWN == p_task_sensor_dta->event)
-					{
-						if (p_task_sensor_dta->tick > 0)
-						{
-							p_task_sensor_dta->tick--;
-						}
-						else
-						{
-							put_event_task_menu(p_task_sensor_cfg->signal_down);
-							p_task_sensor_dta->state = ST_BTN_XX_DOWN;
-						}
-					}
-					else if (EV_BTN_XX_UP == p_task_sensor_dta->event)
-					{
-						if (p_task_sensor_dta->tick > 0)
-						{
-							p_task_sensor_dta->tick--;
-						}
-						else
-						{
-							put_event_task_menu(p_task_sensor_cfg->signal_up);
-							p_task_sensor_dta->state = ST_BTN_XX_UP;
-						}
-					}
-					break;
-
-				case ST_BTN_XX_DOWN:
-
-					if (EV_BTN_XX_UP == p_task_sensor_dta->event)
-					{
-						p_task_sensor_dta->state = ST_BTN_XX_RISING;
-						p_task_sensor_dta->tick = p_task_sensor_cfg->tick_max;
-					}
-
-					break;
-
-				case ST_BTN_XX_RISING:
-					if (EV_BTN_XX_DOWN == p_task_sensor_dta->event)
-					{
-						if (p_task_sensor_dta->tick > 0)
-						{
-							p_task_sensor_dta->tick--;
-						}
-						else
-						{
-							put_event_task_menu(p_task_sensor_cfg->signal_down);
-							p_task_sensor_dta->state = ST_BTN_XX_DOWN;
-						}
-					}
-					else if (EV_BTN_XX_UP == p_task_sensor_dta->event)
-					{
-						if (p_task_sensor_dta->tick > 0)
-						{
-							p_task_sensor_dta->tick--;
-						}
-						else
-						{
-							put_event_task_menu(p_task_sensor_cfg->signal_up);
-							p_task_sensor_dta->state = ST_BTN_XX_UP;
-						}
-					}
-
-					break;
-
-				default:
-
-					break;
-			}
-		}
+		task_sensor_statechart();
     }
+}
+
+void task_sensor_statechart()
+{
+	uint32_t index;
+	const task_sensor_cfg_t *p_task_sensor_cfg;
+	task_sensor_dta_t *p_task_sensor_dta;
+
+	for (index = 0; SENSOR_DTA_QTY > index; index++)
+	{
+		/* Update Task Sensor Configuration & Data Pointer */
+		p_task_sensor_cfg = &task_sensor_cfg_list[index];
+		p_task_sensor_dta = &task_sensor_dta_list[index];
+
+		if (p_task_sensor_cfg->pressed == HAL_GPIO_ReadPin(p_task_sensor_cfg->gpio_port, p_task_sensor_cfg->pin))
+		{
+			p_task_sensor_dta->event = EV_BTN_XX_DOWN;
+		}
+		else
+		{
+			p_task_sensor_dta->event = EV_BTN_XX_UP;
+		}
+
+		switch (p_task_sensor_dta->state)
+		{
+		case ST_BTN_XX_UP:
+			if (EV_BTN_XX_DOWN == p_task_sensor_dta->event)
+			{
+				p_task_sensor_dta->state = ST_BTN_XX_FALLING;
+				p_task_sensor_dta->tick = p_task_sensor_cfg->tick_max;
+			}
+			break;
+
+		case ST_BTN_XX_FALLING:
+			if (EV_BTN_XX_DOWN == p_task_sensor_dta->event) {
+				if (p_task_sensor_dta->tick > 0)
+				{
+					p_task_sensor_dta->tick--;
+				}
+				else
+				{
+					put_event_task_menu(p_task_sensor_cfg->signal_down);
+					p_task_sensor_dta->state = ST_BTN_XX_DOWN;
+				}
+			}
+			else if (EV_BTN_XX_UP == p_task_sensor_dta->event)
+			{
+				if (p_task_sensor_dta->tick > 0)
+				{
+					p_task_sensor_dta->tick--;
+				}
+				else
+				{
+					put_event_task_menu(p_task_sensor_cfg->signal_up);
+					p_task_sensor_dta->state = ST_BTN_XX_UP;
+				}
+			}
+
+			break;
+
+		case ST_BTN_XX_DOWN:
+			if (EV_BTN_XX_UP == p_task_sensor_dta->event)
+			{
+				p_task_sensor_dta->state = ST_BTN_XX_RISING;
+				p_task_sensor_dta->tick = p_task_sensor_cfg->tick_max;
+			}
+			break;
+
+		case ST_BTN_XX_RISING:
+			if (EV_BTN_XX_DOWN == p_task_sensor_dta->event)
+			{
+				if (p_task_sensor_dta->tick > 0)
+				{
+					p_task_sensor_dta->tick--;
+				}
+				else
+				{
+					put_event_task_menu(p_task_sensor_cfg->signal_down);
+					p_task_sensor_dta->state = ST_BTN_XX_DOWN;
+				}
+			}
+			else if (EV_BTN_XX_UP == p_task_sensor_dta->event)
+			{
+				if (p_task_sensor_dta->tick > 0)
+				{
+					p_task_sensor_dta->tick--;
+				}
+				else
+				{
+					put_event_task_menu(p_task_sensor_cfg->signal_up);
+					p_task_sensor_dta->state = ST_BTN_XX_UP;
+				}
+			}
+			break;
+
+		default:
+			break;
+		}
+	}
 }
 
 /********************** end of file ******************************************/
