@@ -52,6 +52,7 @@
 #include "task_adc.h"
 #include "task_menu.h"
 #include "task_display.h"
+#include "task_temp.h"
 #include "eeprom.h"
 
 /********************** macros and definitions *******************************/
@@ -81,9 +82,10 @@ shared_data_type shared_data;
 const task_cfg_t task_cfg_list[]	= {
 		{task_sensor_init, 		task_sensor_update, 	NULL},
 		{task_system_init, 		task_system_update, 	NULL},
+		{task_temp_init, 		task_temp_update, 		&shared_data},
 		//{task_actuator_init,	task_actuator_update, 	NULL},
-		//{task_adc_init,			task_adc_update, 		&shared_data},
-		{task_display_init,		task_display_update, 		NULL},
+		{task_adc_init,			task_adc_update, 		&shared_data},
+		{task_display_init,		task_display_update, 	NULL},
 		{task_menu_init,		task_menu_update, 		&shared_data},
 };
 
@@ -143,6 +145,7 @@ void app_init(void)
 	g_task_actuator_tick_cnt = 0;
 	g_task_menu_tick_cnt = 0;
 	g_task_display_tick_cnt = 0;
+	g_task_temp_tick_cnt = 0;
     __asm("CPSIE i");	/* enable interrupts*/
 
 	cycle_counter_init();
@@ -192,6 +195,7 @@ void HAL_SYSTICK_Callback(void)
 	g_task_actuator_tick_cnt++;
 	g_task_menu_tick_cnt++;
 	g_task_display_tick_cnt++;
+	g_task_temp_tick_cnt++;
 }
 
 /********************** end of file ******************************************/

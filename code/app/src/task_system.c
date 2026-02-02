@@ -53,6 +53,7 @@
 #include "task_menu_attribute.h"
 #include "task_actuator_attribute.h"
 #include "task_actuator_interface.h"
+#include "task_temp_interface.h"
 
 #include <stdbool.h>
 
@@ -182,6 +183,16 @@ void task_system_update(void *parameters)
 					p_task_system_dta->flag = false;
 					p_task_system_dta->state = ST_SYS_MENU_MODE;
 					put_event_task_menu(EV_MEN_ENT_ACTIVE);
+				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					put_event_task_temp(EV_TEMP_ENABLE_ON);
+				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					put_event_task_temp(EV_TEMP_ENABLE_OFF);
 				}
 				break;
 

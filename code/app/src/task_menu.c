@@ -82,7 +82,7 @@
 
 /********************** internal data declaration ****************************/
 task_menu_dta_t task_menu_dta =
-	{DEL_MEN_XX_MIN, ST_MEN_IDLE_VIEW, EV_MEN_ENT_IDLE, false, {0}, 0};
+	{DEL_MEN_XX_MIN, ST_MEN_MAIN_SELECT, EV_MEN_ENT_IDLE, false, {0}, 0};
 
 #define MENU_DTA_QTY	(sizeof(task_menu_dta)/sizeof(task_menu_dta_t))
 
