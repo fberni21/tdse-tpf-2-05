@@ -1,12 +1,12 @@
 /*
- * @file   : task_temp.h
- * @date   : Set 02, 2026
+ * @file   : task_press_attribute.h
+ * @date   : Feb 02, 2026
  * @author : Franco Berni <fberni@fi.uba.ar>
  * @version	v1.0.0
  */
 
-#ifndef INC_TASK_TEMP_H_
-#define INC_TASK_TEMP_H_
+#ifndef INC_TASK_PRESS_ATTRIBUTE_H_
+#define INC_TASK_PRESS_ATTRIBUTE_H_
 
 /********************** CPP guard ********************************************/
 #ifdef __cplusplus
@@ -19,19 +19,33 @@ extern "C" {
 
 /********************** typedef **********************************************/
 
+/* Events to excite Task Temp */
+typedef enum task_press_ev {EV_PRESS_ENABLE_OFF,
+						    EV_PRESS_ENABLE_ON,} task_press_ev_t;
+
+/* State of Task Temp */
+typedef enum task_press_st {ST_PRESS_OFF,
+	   	   	   	   	   	    ST_PRESS_IDLE,
+						    ST_PRESS_VACUUM,
+						    ST_PRESS_RELEASE,} task_press_st_t;
+
+typedef struct
+{
+	task_press_st_t	state;
+	task_press_ev_t	event;
+	bool			flag;
+} task_press_dta_t;
+
 /********************** external data declaration ****************************/
-extern uint32_t g_task_temp_cnt;
-extern volatile uint32_t g_task_temp_tick_cnt;
+extern task_press_dta_t task_press_dta;
 
 /********************** external functions declaration ***********************/
-extern void task_temp_init(void *parameters);
-extern void task_temp_update(void *parameters);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus
 }
 #endif
 
-#endif /* INC_TASK_TEMP_H_ */
+#endif /* INC_TASK_PRESS_ATTRIBUTE_H_ */
 
 /********************** end of file ******************************************/
