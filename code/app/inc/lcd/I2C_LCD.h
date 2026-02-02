@@ -14,9 +14,19 @@
 #define I2C_LCD_H_
 
 #include "stdint.h"
+#include "stdbool.h"
 
 #define I2C_LCD_MAX	1	// Maximum Number of I2C_LCD Modules in Your Project
 #define I2C_LCD_1	0	// I2C_LCD Instance Number 1 (Add more if you need)
+
+#define LCD_TX_BUFFER_SIZE 64
+
+typedef struct {
+    uint16_t buffer[LCD_TX_BUFFER_SIZE];
+    volatile uint16_t head;
+    volatile uint16_t tail;
+    volatile bool is_busy; // Flag para saber si el I2C está transmitiendo
+} I2C_LCD_Queue_t;
 
 //-----[ Prototypes For All User External Functions ]-----
 

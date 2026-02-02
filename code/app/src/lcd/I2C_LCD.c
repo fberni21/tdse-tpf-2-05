@@ -65,7 +65,60 @@ typedef struct I2C_LCD_InfoParam_s
 
 static I2C_LCD_InfoParam_t I2C_LCD_InfoParam_g[I2C_LCD_MAX];
 
+static I2C_LCD_Queue_t lcd_queue_list[I2C_LCD_MAX];
+
 /*---------------------[STATIC INTERNAL FUNCTIONS]-----------------------*/
+
+static uint8_t i2c_tx_buffer[4];
+
+static void I2C_LCD_Process_Next(uint8_t instance) {
+	if (lcd_queue_list[instance].head == lcd_queue_list[instance].tail) {
+		lcd_queue_list[instance].is_busy = 0;
+		return;
+	}
+
+	lcd_queue_list[instance].is_busy = 1;
+
+	uint16_t item = lcd_queue_list[instance].buffer[lcd_queue_list[instance].tail];
+	lcd_queue_list[instance].tail = (lcd_queue_list[instance].tail + 1) % LCD_TX_BUFFER_SIZE;
+
+	uint8_t value = (uint8_t)(item & 0x00FF);
+	uint8_t rs_bit = (uint8_t)((item >> 8) & RS);
+
+	uint8_t high_nibble = value & 0xF0;
+	uint8_t low_nibble = (value << 4) & 0xF0;
+	uint8_t bl = I2C_LCD_InfoParam_g[instance].BacklightVal;
+
+	// Estructura: [Nibble | Backlight | RS | EN/RW]
+	i2c_tx_buffer[0] = high_nibble | bl | rs_bit | EN; // Enable High
+	i2c_tx_buffer[1] = high_nibble | bl | rs_bit;      // Enable Low (Write)
+
+	i2c_tx_buffer[2] = low_nibble  | bl | rs_bit | EN; // Enable High
+	i2c_tx_buffer[3] = low_nibble  | bl | rs_bit;      // Enable Low (Write)
+
+	HAL_I2C_Master_Transmit_IT(
+		I2C_LCD_CfgParam[instance].I2C_Handle,
+		I2C_LCD_CfgParam[instance].I2C_LCD_Address << 1,
+		i2c_tx_buffer,
+		4
+	);
+}
+
+static void I2C_LCD_Push(uint8_t instance, uint8_t value, uint16_t type) {
+    uint16_t next_head = (lcd_queue_list[instance].head + 1) % LCD_TX_BUFFER_SIZE;
+
+    // TODO: quizás habría que fallar de alguna forma si la cola está llena?
+    if (next_head != lcd_queue_list[instance].tail) {
+    	lcd_queue_list[instance].buffer[lcd_queue_list[instance].head] = (uint16_t)value | (type << 8);
+    	lcd_queue_list[instance].head = next_head;
+    }
+
+    if (!lcd_queue_list[instance].is_busy) {
+        I2C_LCD_Process_Next(instance);
+    }
+}
+
+//  Solo para inicialización porque son bloqueantes
 
 static void I2C_LCD_ExpanderWrite(uint8_t I2C_LCD_InstanceIndex, uint8_t DATA)
 {
@@ -102,11 +155,6 @@ static void I2C_LCD_Cmd(uint8_t I2C_LCD_InstanceIndex, uint8_t CMD)
 	I2C_LCD_Send(I2C_LCD_InstanceIndex, CMD, 0);
 }
 
-static void I2C_LCD_Data(uint8_t I2C_LCD_InstanceIndex, uint8_t DATA)
-{
-	I2C_LCD_Send(I2C_LCD_InstanceIndex, DATA, 1);
-}
-
 /*-----------------------------------------------------------------------*/
 
 //=========================================================================================================================
@@ -134,110 +182,39 @@ void I2C_LCD_Init(uint8_t I2C_LCD_InstanceIndex)
     I2C_LCD_Clear(I2C_LCD_InstanceIndex);
 }
 
+
 void I2C_LCD_Clear(uint8_t I2C_LCD_InstanceIndex)
 {
     I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_CLEARDISPLAY);
     DELAY_MS(2);
 }
 
-void I2C_LCD_Home(uint8_t I2C_LCD_InstanceIndex)
-{
-    I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_RETURNHOME);
-    DELAY_MS(2);
-}
-
-void I2C_LCD_SetCursor(uint8_t I2C_LCD_InstanceIndex, uint8_t Col, uint8_t Row)
-{
+void I2C_LCD_SetCursor(uint8_t instance, uint8_t Col, uint8_t Row) {
     int Row_Offsets[] = {0x00, 0x40, 0x14, 0x54};
-    if (Row > I2C_LCD_CfgParam[I2C_LCD_InstanceIndex].I2C_LCD_nRow)
-    {
-    	Row = I2C_LCD_CfgParam[I2C_LCD_InstanceIndex].I2C_LCD_nRow - 1;
+
+    if (Row >= I2C_LCD_CfgParam[instance].I2C_LCD_nRow) {
+        Row = I2C_LCD_CfgParam[instance].I2C_LCD_nRow - 1;
     }
-    I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_SETDDRAMADDR | (Col + Row_Offsets[Row]));
+
+    uint8_t command = LCD_SETDDRAMADDR | (Col + Row_Offsets[Row]);
+
+    I2C_LCD_Push(instance, command, 0);
 }
 
-void I2C_LCD_WriteChar(uint8_t I2C_LCD_InstanceIndex, char Ch)
-{
-    I2C_LCD_Data(I2C_LCD_InstanceIndex, Ch);
+void I2C_LCD_WriteChar(uint8_t instance, char Ch) {
+    I2C_LCD_Push(instance, (uint8_t)Ch, RS);
 }
 
-void I2C_LCD_WriteString(uint8_t I2C_LCD_InstanceIndex, char *Str)
-{
-    while (*Str)
-    {
-        I2C_LCD_Data(I2C_LCD_InstanceIndex, *Str++);
-    }
-}
-
-void I2C_LCD_ShiftLeft(uint8_t I2C_LCD_InstanceIndex)
-{
-    I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVELEFT);
-}
-
-void I2C_LCD_ShiftRight(uint8_t I2C_LCD_InstanceIndex)
-{
-    I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_CURSORSHIFT | LCD_DISPLAYMOVE | LCD_MOVERIGHT);
-}
-
-void I2C_LCD_Backlight(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].BacklightVal = LCD_BACKLIGHT;
-    I2C_LCD_ExpanderWrite(I2C_LCD_InstanceIndex, 0);
-}
-
-void I2C_LCD_NoBacklight(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].BacklightVal = LCD_NOBACKLIGHT;
-    I2C_LCD_ExpanderWrite(I2C_LCD_InstanceIndex, 0);
-}
-
-void I2C_LCD_Display(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl |= LCD_DISPLAYON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_NoDisplay(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl &= ~LCD_DISPLAYON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_Cursor(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl |= LCD_CURSORON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_NoCursor(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl &= ~LCD_CURSORON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_Blink(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl |= LCD_BLINKON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_NoBlink(uint8_t I2C_LCD_InstanceIndex)
-{
-	I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl &= ~LCD_BLINKON;
-	I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_DISPLAYCONTROL | I2C_LCD_InfoParam_g[I2C_LCD_InstanceIndex].DisplayCtrl);
-}
-
-void I2C_LCD_CreateCustomChar(uint8_t I2C_LCD_InstanceIndex, uint8_t CharIndex, const uint8_t* CharMap)
-{
-    CharIndex &= 0x07;
-    I2C_LCD_Cmd(I2C_LCD_InstanceIndex, LCD_SETCGRAMADDR | (CharIndex << 3));
-    for (int i = 0; i < 8; i++)
-    {
-    	I2C_LCD_Send(I2C_LCD_InstanceIndex, CharMap[i], RS);
+void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef *hi2c) {
+	// FIXME: funciona solo para un LCD, igual solo usamos uno así que creo que podría quedar así.
+    if (hi2c == I2C_LCD_CfgParam[I2C_LCD_1].I2C_Handle) {
+        I2C_LCD_Process_Next(I2C_LCD_1);
     }
 }
 
-void I2C_LCD_PrintCustomChar(uint8_t I2C_LCD_InstanceIndex, uint8_t CharIndex)
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef *hi2c)
 {
-	I2C_LCD_Send(I2C_LCD_InstanceIndex, CharIndex, RS);
+    while (1)
+    {
+    }
 }
