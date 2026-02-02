@@ -24,7 +24,8 @@ extern "C" {
 /********************** external data declaration ****************************/
 
 /********************** external functions declaration ***********************/
-void eeprom_write(uint8_t offset, void *data, size_t size);
+
+HAL_StatusTypeDef eeprom_write_async(uint8_t offset, void *data, size_t size);
 void eeprom_read(uint8_t offset, void *data, size_t size);
 
 /********************** End of CPP guard *************************************/

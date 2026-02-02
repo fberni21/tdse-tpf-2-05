@@ -181,6 +181,7 @@ void task_menu_update(void *parameters)
 void task_menu_statechart(shared_data_type *p_shared_data)
 {
 	task_menu_dta_t *p_task_menu_dta;
+	HAL_StatusTypeDef status;
 
 	/* Update Task Menu Data Pointer */
 	p_task_menu_dta = &task_menu_dta;
@@ -266,10 +267,18 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 				}
 				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 				{
-					// Volvemos al menú de vista en vivo y guardamos los cambios hechos en la EEPROM
-					p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
-					eeprom_write(MENU_CFG_ADDR, &p_shared_data->cfg, sizeof(p_shared_data->cfg));
+					p_task_menu_dta->state = ST_MEN_SAVING;
 				}
+			}
+			break;
+
+		case ST_MEN_SAVING:
+			status = eeprom_write_async(MENU_CFG_ADDR,
+										&p_shared_data->cfg,
+										sizeof(p_shared_data->cfg));
+			if (HAL_OK == status)
+			{
+				p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
 			}
 			break;
 

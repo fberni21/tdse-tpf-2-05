@@ -67,6 +67,8 @@ typedef enum task_menu_st {
 	ST_MEN_IDLE_VIEW,       // Pantalla principal: Muestra valores actuales (T y P)
 	ST_MEN_MAIN_SELECT,     // Menú Principal: Seleccionar Temp / Presión / Alarmas
 
+	ST_MEN_SAVING,			// Esperando para poder guardar los datos en la EEPROM.
+
 	// Rama Temperatura
 	ST_MEN_TEMP_SELECT,     // Submenú Temp: Setpoint o Histéresis
 	ST_MEN_MOD_TEMP_SET,    // Modificar Setpoint Temperatura
