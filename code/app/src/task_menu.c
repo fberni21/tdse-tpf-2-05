@@ -571,7 +571,7 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 			put_cmd_task_display(CMD_DISP_WRITE_STR, "Alarma activa?  ");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-			if (p_task_menu_dta->cfg.alarm_enable) put_cmd_task_display(CMD_DISP_WRITE_STR, "> SI            \n");
+			if (p_task_menu_dta->cfg.alarm_enabled) put_cmd_task_display(CMD_DISP_WRITE_STR, "> SI            \n");
 			else                                   put_cmd_task_display(CMD_DISP_WRITE_STR, "> NO            \n");
 
 			if (true == p_task_menu_dta->flag)
@@ -580,19 +580,19 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 				{
 					// Toggle bool
-					p_task_menu_dta->cfg.alarm_enable = !p_task_menu_dta->cfg.alarm_enable;
+					p_task_menu_dta->cfg.alarm_enabled = !p_task_menu_dta->cfg.alarm_enabled;
 				}
 				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 				{
 					// Volvemos y guardamos el valor seteado
 					p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
-					p_shared_data->cfg.alarm_enable = p_task_menu_dta->cfg.alarm_enable;
+					p_shared_data->cfg.alarm_enabled = p_task_menu_dta->cfg.alarm_enabled;
 				}
 				else if (EV_MEN_ESC_ACTIVE == p_task_menu_dta->event)
 				{
 					// Volvemos y restauramos el valor anterior
 					p_task_menu_dta->state = ST_MEN_ALARM_SELECT;
-					p_task_menu_dta->cfg.alarm_enable = p_shared_data->cfg.alarm_enable;
+					p_task_menu_dta->cfg.alarm_enabled = p_shared_data->cfg.alarm_enabled;
 				}
 			}
 			break;
@@ -696,7 +696,7 @@ void recover_saved_cfg(system_config_t *cfg)
 	cfg->temp_hysteresis = TEMP_HYSTERESIS_INI;
 	cfg->press_setpoint = PRESS_SETPOINT_INI;
 	cfg->press_hysteresis = PRESS_HYSTERESIS_INI;
-	cfg->alarm_enable = ALARM_ENABLE_INI;
+	cfg->alarm_enabled = ALARM_ENABLE_INI;
 
 	system_config_t saved_cfg = {0};
 	eeprom_read(MENU_CFG_ADDR, (void*)&saved_cfg, sizeof(saved_cfg));
@@ -724,7 +724,7 @@ void recover_saved_cfg(system_config_t *cfg)
 		cfg->press_alarm_limit = saved_cfg.press_alarm_limit;
 
 	// Alarma
-	cfg->alarm_enable = saved_cfg.alarm_enable;
+	cfg->alarm_enabled = saved_cfg.alarm_enabled;
 }
 
 /********************** end of file ******************************************/

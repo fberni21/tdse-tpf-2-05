@@ -64,7 +64,8 @@ typedef enum task_system_ev {EV_SYS_ENT_IDLE,
 
 /* State of Task System */
 typedef enum task_system_st {ST_SYS_MENU_MODE,
-							 ST_SYS_NORMAL_MODE} task_system_st_t;
+	 	 	 	 	 	 	 ST_SYS_NORMAL_MODE,
+							 ST_SYS_ALARM_MODE,} task_system_st_t;
 
 typedef struct
 {
@@ -72,6 +73,8 @@ typedef struct
 	task_system_st_t	state;
 	task_system_ev_t	event;
 	bool				flag;
+
+	bool				enabled;
 } task_system_dta_t;
 
 /********************** external data declaration ****************************/

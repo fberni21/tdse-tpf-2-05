@@ -54,6 +54,8 @@
 #include "task_actuator_attribute.h"
 #include "task_actuator_interface.h"
 #include "task_temp_interface.h"
+#include "task_press_interface.h"
+#include "utils.h"
 
 #include <stdbool.h>
 
@@ -67,7 +69,7 @@
 
 /********************** internal data declaration ****************************/
 task_system_dta_t task_system_dta =
-	{DEL_SYS_XX_MIN, ST_SYS_MENU_MODE, EV_SYS_ENABLE_IDLE, false};
+	{DEL_SYS_XX_MIN, ST_SYS_MENU_MODE, EV_SYS_ENABLE_IDLE, false, false};
 
 #define SYSTEM_DTA_QTY	(sizeof(task_system_dta)/sizeof(task_system_dta_t))
 
@@ -124,6 +126,8 @@ void task_system_update(void *parameters)
 	task_system_dta_t *p_task_system_dta;
 	bool b_time_update_required = false;
 
+	shared_data_type *p_shared_data = (shared_data_type *)parameters;
+
 	/* Update Task System Counter */
 	g_task_system_cnt++;
 
@@ -169,6 +173,16 @@ void task_system_update(void *parameters)
 					task_menu_ev_t menu_ev = system_event_to_menu_event(p_task_system_dta->event);
 					put_event_task_menu(menu_ev);
 				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					p_task_system_dta->enabled = true;
+				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					p_task_system_dta->enabled = false;
+				}
 				else if ((true == p_task_system_dta->flag) && (EV_SYS_EXIT_MENU == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
@@ -178,7 +192,31 @@ void task_system_update(void *parameters)
 				break;
 
 			case ST_SYS_NORMAL_MODE:
-				if ((true == p_task_system_dta->flag) && (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
+
+				uint16_t temp = temp_raw_to_celsius(p_shared_data->temp_raw);
+				uint16_t press = press_raw_to_kPa(p_shared_data->pressure_raw);
+
+				if (p_task_system_dta->enabled && p_shared_data->cfg.alarm_enabled)
+				{
+					bool alarm_set = false;
+
+					if (p_shared_data->cfg.temp_alarm_limit > p_shared_data->cfg.temp_setpoint)
+						alarm_set |= (temp > p_shared_data->cfg.temp_alarm_limit);
+					else
+						alarm_set |= (temp < p_shared_data->cfg.temp_alarm_limit);
+
+					if (p_shared_data->cfg.press_alarm_limit > p_shared_data->cfg.press_setpoint)
+						alarm_set |= (press > p_shared_data->cfg.press_alarm_limit);
+					else
+						alarm_set |= (press < p_shared_data->cfg.press_alarm_limit);
+
+					if (alarm_set)
+					{
+						p_task_system_dta->state = ST_SYS_ALARM_MODE;
+						// TODO: encender buzzer
+					}
+				}
+				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
 					p_task_system_dta->state = ST_SYS_MENU_MODE;
@@ -187,12 +225,28 @@ void task_system_update(void *parameters)
 				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
+					p_task_system_dta->enabled = true;
 					put_event_task_temp(EV_TEMP_ENABLE_ON);
+					put_event_task_press(EV_PRESS_ENABLE_ON);
 				}
 				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
+					p_task_system_dta->enabled = false;
 					put_event_task_temp(EV_TEMP_ENABLE_OFF);
+					put_event_task_press(EV_PRESS_ENABLE_OFF);
+				}
+				break;
+
+			case ST_SYS_ALARM_MODE:
+				if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
+				{
+					p_task_system_dta->flag = false;
+					p_task_system_dta->enabled = false;
+					p_task_system_dta->state = ST_SYS_NORMAL_MODE;
+					put_event_task_temp(EV_TEMP_ENABLE_OFF);
+					put_event_task_press(EV_PRESS_ENABLE_OFF);
+					// TODO: apagar el buzzer
 				}
 				break;
 

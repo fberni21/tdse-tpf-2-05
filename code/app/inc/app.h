@@ -64,7 +64,7 @@ typedef struct
 	uint32_t press_hysteresis;  // Margen de presión
 	uint32_t press_alarm_limit; // Límite para disparar alarma
 
-	bool     alarm_enable;      // Estado general de alarmas (ON/OFF)
+	bool     alarm_enabled;      // Estado general de alarmas (ON/OFF)
 } system_config_t;
 
 typedef struct {

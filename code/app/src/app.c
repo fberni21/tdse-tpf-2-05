@@ -82,7 +82,7 @@ shared_data_type shared_data;
 
 const task_cfg_t task_cfg_list[]	= {
 		{task_sensor_init, 		task_sensor_update, 	NULL},
-		{task_system_init, 		task_system_update, 	NULL},
+		{task_system_init, 		task_system_update, 	&shared_data},
 		{task_temp_init, 		task_temp_update, 		&shared_data},
 		{task_press_init, 		task_press_update, 		&shared_data},
 		//{task_actuator_init,	task_actuator_update, 	NULL},
