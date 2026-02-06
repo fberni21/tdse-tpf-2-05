@@ -64,7 +64,7 @@ typedef enum task_menu_ev {EV_MEN_ENT_IDLE,
 
 /* State of Task Menu */
 typedef enum task_menu_st {
-	ST_MEN_IDLE_VIEW,       // Pantalla principal: Muestra valores actuales (T y P)
+	ST_MEN_IDLE,       		// Fuera del menú
 	ST_MEN_MAIN_SELECT,     // Menú Principal: Seleccionar Temp / Presión / Alarmas
 
 	ST_MEN_SAVING,			// Esperando para poder guardar los datos en la EEPROM.

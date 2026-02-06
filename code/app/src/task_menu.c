@@ -203,30 +203,15 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		switch (p_task_menu_dta->state)
 		{
 		// ----------------------------------------------------------------
-		// ESTADO 1: VISTA EN VIVO (IDLE)
+		// ESTADO 1: IDLE
 		// ----------------------------------------------------------------
-		case ST_MEN_IDLE_VIEW:
-			//I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
-			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			snprintf(menu_str, sizeof(menu_str), "%2lu \xDF""C | %3lu kPa",
-					 temp_raw_to_celsius(p_shared_data->temp_raw),
-					 press_raw_to_kPa(p_shared_data->pressure_raw));
-			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
-
-			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Enter p/ config");
-
+		case ST_MEN_IDLE:
 			// Si presiona ENTER, va al menú principal
 			if ((true == p_task_menu_dta->flag) && (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event))
 			{
 				p_task_menu_dta->flag = false;
 				p_task_menu_dta->state = ST_MEN_MAIN_SELECT;
 				p_task_menu_dta->current_selection = 0;
-			}
-			// Si no, volvemos al modo normal y para solo mostrar los valores actuales
-			else if (true == p_task_menu_dta->flag)
-			{
-				put_event_task_system(EV_SYS_EXIT_MENU);
 			}
 			break;
 
@@ -278,7 +263,8 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 										sizeof(p_shared_data->cfg));
 			if (HAL_OK == status)
 			{
-				p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+				p_task_menu_dta->state = ST_MEN_IDLE;
+				put_event_task_system(EV_SYS_EXIT_MENU);
 			}
 			break;
 
@@ -287,7 +273,7 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_TEMP_SELECT:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Temp:     ");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Config. Temp:   ");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 			if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
@@ -324,11 +310,11 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_MOD_TEMP_SET:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Setpoint:  ");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Setpoint Temp:  ");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 			// Muestra el valor actual que estamos editando
-			snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
+			snprintf(menu_str, sizeof(menu_str), "     %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_setpoint);
 			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 			if (true == p_task_menu_dta->flag)
@@ -366,10 +352,10 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_MOD_TEMP_HYS:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Temp Histeresis:");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Histeresis Temp:");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-			snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
+			snprintf(menu_str, sizeof(menu_str), "     %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_hysteresis);
 			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 			if (true == p_task_menu_dta->flag)
@@ -407,7 +393,7 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_PRESS_SELECT:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Pres:     ");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Config. Presion:");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 			if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Setpoint      ");
@@ -445,11 +431,11 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_MOD_PRESS_SET:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Setpoint:  ");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Setpoint Pres:  ");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 			// Muestra el valor actual que estamos editando
-			snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_setpoint);
+			snprintf(menu_str, sizeof(menu_str), "     %3lu kPa   ", p_task_menu_dta->cfg.press_setpoint);
 			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 			if (true == p_task_menu_dta->flag)
@@ -487,10 +473,10 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		// ----------------------------------------------------------------
 		case ST_MEN_MOD_PRESS_HYS:
 			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-			put_cmd_task_display(CMD_DISP_WRITE_STR, "Pres Histeresis:");
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Histeresis Pres:");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-			snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_hysteresis);
+			snprintf(menu_str, sizeof(menu_str), "     %3lu kPa   ", p_task_menu_dta->cfg.press_hysteresis);
 			put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 			if (true == p_task_menu_dta->flag)
@@ -528,7 +514,7 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 			// ----------------------------------------------------------------
 			case ST_MEN_ALARM_SELECT:
 				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Conf. Alarmas:  ");
+				put_cmd_task_display(CMD_DISP_WRITE_STR, "Config. Alarmas:");
 
 				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
 				if (p_task_menu_dta->current_selection == 0)      put_cmd_task_display(CMD_DISP_WRITE_STR, "> Habilitacion  ");
@@ -571,8 +557,8 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 			put_cmd_task_display(CMD_DISP_WRITE_STR, "Alarma activa?  ");
 
 			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-			if (p_task_menu_dta->cfg.alarm_enabled) put_cmd_task_display(CMD_DISP_WRITE_STR, "> SI            \n");
-			else                                   put_cmd_task_display(CMD_DISP_WRITE_STR, "> NO            \n");
+			if (p_task_menu_dta->cfg.alarm_enabled) put_cmd_task_display(CMD_DISP_WRITE_STR, "> SI            ");
+			else                                    put_cmd_task_display(CMD_DISP_WRITE_STR, "> NO            ");
 
 			if (true == p_task_menu_dta->flag)
 			{
@@ -602,10 +588,10 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 			// ----------------------------------------------------------------
 			case ST_MEN_MOD_ALARM_TLIM:
 				put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-				put_cmd_task_display(CMD_DISP_WRITE_STR, "Limite Temp:    ");
+				put_cmd_task_display(CMD_DISP_WRITE_STR, "Alarma Temp:    ");
 
 				put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-				snprintf(menu_str, sizeof(menu_str), "Val: %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_alarm_limit);
+				snprintf(menu_str, sizeof(menu_str), "     %2lu \xDF""C      ", p_task_menu_dta->cfg.temp_alarm_limit);
 				put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 				if (true == p_task_menu_dta->flag)
@@ -642,10 +628,10 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 				// ----------------------------------------------------------------
 				case ST_MEN_MOD_ALARM_PLIM:
 					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-					put_cmd_task_display(CMD_DISP_WRITE_STR, "Limite Pres:    ");
+					put_cmd_task_display(CMD_DISP_WRITE_STR, "Alarma Presion: ");
 
 					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-					snprintf(menu_str, sizeof(menu_str), "Val: %3lu kPa   ", p_task_menu_dta->cfg.press_alarm_limit);
+					snprintf(menu_str, sizeof(menu_str), "     %3lu kPa   ", p_task_menu_dta->cfg.press_alarm_limit);
 					put_cmd_task_display(CMD_DISP_WRITE_STR, menu_str);
 
 					if (true == p_task_menu_dta->flag)
@@ -681,7 +667,7 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 		default:
 
 			p_task_menu_dta->tick  = DEL_MEN_XX_MAX;
-			p_task_menu_dta->state = ST_MEN_IDLE_VIEW;
+			p_task_menu_dta->state = ST_MEN_IDLE;
 			p_task_menu_dta->event = EV_MEN_ENT_IDLE;
 			p_task_menu_dta->flag  = false;
 

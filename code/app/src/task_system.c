@@ -55,6 +55,7 @@
 #include "task_actuator_interface.h"
 #include "task_temp_interface.h"
 #include "task_press_interface.h"
+#include "task_display_interface.h"
 #include "utils.h"
 
 #include <stdbool.h>
@@ -72,6 +73,8 @@ task_system_dta_t task_system_dta =
 	{DEL_SYS_XX_MIN, ST_SYS_MENU_MODE, EV_SYS_ENABLE_IDLE, false, false};
 
 #define SYSTEM_DTA_QTY	(sizeof(task_system_dta)/sizeof(task_system_dta_t))
+
+static char system_str[17];
 
 /********************** internal functions declaration ***********************/
 
@@ -125,8 +128,13 @@ void task_system_update(void *parameters)
 {
 	task_system_dta_t *p_task_system_dta;
 	bool b_time_update_required = false;
+	bool b_display_update_required = false;
 
 	shared_data_type *p_shared_data = (shared_data_type *)parameters;
+
+	uint32_t temp = temp_raw_to_celsius(p_shared_data->temp_raw);
+	uint32_t press = press_raw_to_kPa(p_shared_data->pressure_raw);
+	bool b_is_alarm_set = false;
 
 	/* Update Task System Counter */
 	g_task_system_cnt++;
@@ -157,6 +165,16 @@ void task_system_update(void *parameters)
 
     	/* Update Task System Data Pointer */
 		p_task_system_dta = &task_system_dta;
+
+		if (DEL_SYS_XX_MIN < p_task_system_dta->tick)
+		{
+			p_task_system_dta->tick--;
+		}
+		else
+		{
+			p_task_system_dta->tick = DEL_SYS_XX_MAX;
+			b_display_update_required = true;
+		}
 
 		if (true == any_event_task_system())
 		{
@@ -192,29 +210,35 @@ void task_system_update(void *parameters)
 				break;
 
 			case ST_SYS_NORMAL_MODE:
+				if (b_display_update_required)
+				{
+					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+					snprintf(system_str, sizeof(system_str), "%2lu \xDF""C | %3lu kPa", temp, press);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
 
-				uint16_t temp = temp_raw_to_celsius(p_shared_data->temp_raw);
-				uint16_t press = press_raw_to_kPa(p_shared_data->pressure_raw);
+					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);\
+					put_cmd_task_display(CMD_DISP_WRITE_STR, "Estado: ");
+					put_cmd_task_display(CMD_DISP_WRITE_STR,
+							(p_task_system_dta->enabled) ? "on      " : "off     ");
+				}
 
 				if (p_task_system_dta->enabled && p_shared_data->cfg.alarm_enabled)
 				{
-					bool alarm_set = false;
-
 					if (p_shared_data->cfg.temp_alarm_limit > p_shared_data->cfg.temp_setpoint)
-						alarm_set |= (temp > p_shared_data->cfg.temp_alarm_limit);
+						b_is_alarm_set |= (temp > p_shared_data->cfg.temp_alarm_limit);
 					else
-						alarm_set |= (temp < p_shared_data->cfg.temp_alarm_limit);
+						b_is_alarm_set |= (temp < p_shared_data->cfg.temp_alarm_limit);
 
 					if (p_shared_data->cfg.press_alarm_limit > p_shared_data->cfg.press_setpoint)
-						alarm_set |= (press > p_shared_data->cfg.press_alarm_limit);
+						b_is_alarm_set |= (press > p_shared_data->cfg.press_alarm_limit);
 					else
-						alarm_set |= (press < p_shared_data->cfg.press_alarm_limit);
+						b_is_alarm_set |= (press < p_shared_data->cfg.press_alarm_limit);
+				}
 
-					if (alarm_set)
-					{
-						p_task_system_dta->state = ST_SYS_ALARM_MODE;
-						// TODO: encender buzzer
-					}
+				if (b_is_alarm_set)
+				{
+					p_task_system_dta->state = ST_SYS_ALARM_MODE;
+					// TODO: encender buzzer
 				}
 				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
 				{
@@ -239,6 +263,16 @@ void task_system_update(void *parameters)
 				break;
 
 			case ST_SYS_ALARM_MODE:
+				if (b_display_update_required)
+				{
+					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+					snprintf(system_str, sizeof(system_str), "%2lu \xDF""C | %3lu kPa", temp, press);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
+
+					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+					put_cmd_task_display(CMD_DISP_WRITE_STR, "    ALARMA!     ");
+				}
+
 				if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
 				{
 					p_task_system_dta->flag = false;
