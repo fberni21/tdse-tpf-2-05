@@ -11,14 +11,15 @@
 #include "task_display_interface.h"
 
 /********************** macros and definitions *******************************/
-#define SUBCMD_UNDEFINED	(255)
-#define MAX_SUBCMDS		(64)
+#define SUBCMD_UNDEFINED	'\xFF'
+
+#define MAX_SUBCMDS			(64)
 
 /********************** internal data declaration ****************************/
 
 /********************** internal functions declaration ***********************/
 
-void put_subcmd_task_display(task_disp_subcmd_dta_t cmd);
+void put_subcmd_task_display(char subcmd);
 
 /********************** internal data definition *****************************/
 
@@ -27,7 +28,7 @@ struct
 	uint32_t	head;
 	uint32_t	tail;
 	uint32_t	count;
-	task_disp_subcmd_dta_t	queue[MAX_SUBCMDS];
+	char		queue[MAX_SUBCMDS];
 } queue_task_disp;
 
 /********************** external data declaration ****************************/
@@ -42,41 +43,28 @@ void init_queue_cmd_task_display(void)
 	queue_task_disp.count = 0;
 
 	for (i = 0; i < MAX_SUBCMDS; i++)
-	{
-		queue_task_disp.queue[i].subcmd = SUBCMD_UNDEFINED;
-		queue_task_disp.queue[i].line = 0;
-	}
+		queue_task_disp.queue[i] = SUBCMD_UNDEFINED;
 }
 
 void put_cmd_task_display(task_disp_cmd_t cmd, const char *text)
 {
-	task_disp_subcmd_dta_t subcmd_dta;
-
 	switch (cmd)
 	{
 	case CMD_DISP_TO_LINE_0:
-		subcmd_dta.subcmd = SUBCMD_DISP_MOVE_TO;
-		subcmd_dta.line = 0;
-		put_subcmd_task_display(subcmd_dta);
+		put_subcmd_task_display(SUBCMD_LINE_0);
 		break;
 
 	case CMD_DISP_TO_LINE_1:
-		subcmd_dta.subcmd = SUBCMD_DISP_MOVE_TO;
-		subcmd_dta.line = 1;
-		put_subcmd_task_display(subcmd_dta);
+		put_subcmd_task_display(SUBCMD_LINE_1);
 		break;
 
 	case CMD_DISP_WRITE_STR:
-		subcmd_dta.subcmd = SUBCMD_DISP_WRITE_CHAR;
 		while (*text)
-		{
-			subcmd_dta.chr = *text++;
-			put_subcmd_task_display(subcmd_dta);
-		}
+			put_subcmd_task_display(*text++);
 	}
 }
 
-void put_subcmd_task_display(task_disp_subcmd_dta_t subcmd)
+void put_subcmd_task_display(char subcmd)
 {
 	queue_task_disp.count++;
 	queue_task_disp.queue[queue_task_disp.head++] = subcmd;
@@ -85,15 +73,14 @@ void put_subcmd_task_display(task_disp_subcmd_dta_t subcmd)
 		queue_task_disp.head = 0;
 }
 
-task_disp_subcmd_dta_t get_subcmd_task_display(void)
+char get_subcmd_task_display(void)
 
 {
-	task_disp_subcmd_dta_t subcmd_dta;
+	char subcmd_dta;
 
 	queue_task_disp.count--;
 	subcmd_dta = queue_task_disp.queue[queue_task_disp.tail];
-	queue_task_disp.queue[queue_task_disp.tail].subcmd = SUBCMD_UNDEFINED;
-	queue_task_disp.queue[queue_task_disp.tail].line = 0;
+	queue_task_disp.queue[queue_task_disp.tail] = SUBCMD_UNDEFINED;
 	queue_task_disp.tail++;
 
 	if (MAX_SUBCMDS == queue_task_disp.tail)

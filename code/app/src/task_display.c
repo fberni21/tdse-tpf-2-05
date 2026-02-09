@@ -75,36 +75,37 @@ void task_display_update(void *parameters)
 
     while (b_time_update_required)
     {
-//		/* Protect shared resource (g_task_display_tick) */
-//		__asm("CPSID i");	/* disable interrupts*/
-//		if (G_TASK_DISPLAY_TICK_CNT_INI < g_task_display_tick_cnt)
-//		{
-//			g_task_display_tick_cnt--;
-//			b_time_update_required = true;
-//		}
-//		else
-//		{
-//			b_time_update_required = false;
-//		}
-//		__asm("CPSIE i");	/* enable interrupts*/
+		/* Protect shared resource (g_task_display_tick) */
+		__asm("CPSID i");	/* disable interrupts*/
+		if (G_TASK_DISPLAY_TICK_CNT_INI < g_task_display_tick_cnt)
+		{
+			g_task_display_tick_cnt--;
+			b_time_update_required = true;
+		}
+		else
+		{
+			b_time_update_required = false;
+		}
+		__asm("CPSIE i");	/* enable interrupts*/
 
     	b_time_update_required = false;
 
 		if (true == any_submcd_task_display())
 		{
-			task_disp_subcmd_dta_t subcmd_dta = get_subcmd_task_display();
+			char subcmd = get_subcmd_task_display();
 
-			switch (subcmd_dta.subcmd)
+			switch (subcmd)
 			{
-			case SUBCMD_DISP_MOVE_TO:
-				I2C_LCD_SetCursor(I2C_LCD_1, 0, subcmd_dta.line);
+			case SUBCMD_LINE_0:
+				I2C_LCD_SetCursor(I2C_LCD_1, 0, 0);
 				break;
 
-			case SUBCMD_DISP_WRITE_CHAR:
-				I2C_LCD_WriteChar(I2C_LCD_1, subcmd_dta.chr);
+			case SUBCMD_LINE_1:
+				I2C_LCD_SetCursor(I2C_LCD_1, 0, 1);
 				break;
 
 			default:
+				I2C_LCD_WriteChar(I2C_LCD_1, subcmd);
 				break;
 			}
 		}

@@ -27,20 +27,8 @@ typedef enum {
 	CMD_DISP_WRITE_STR
 } task_disp_cmd_t;
 
-typedef enum
-{
-	SUBCMD_DISP_MOVE_TO,
-	SUBCMD_DISP_WRITE_CHAR,
-} task_disp_subcmd_t;
-
-typedef struct
-{
-	task_disp_subcmd_t subcmd;
-	union {
-		char 	chr;
-		uint8_t	line;
-	};
-} task_disp_subcmd_dta_t;
+#define SUBCMD_LINE_0		'\x1'
+#define SUBCMD_LINE_1		'\x2'
 
 /********************** external data declaration ****************************/
 
@@ -50,7 +38,7 @@ void init_queue_cmd_task_display(void);
 
 void put_cmd_task_display(task_disp_cmd_t cmd, const char *text);
 
-task_disp_subcmd_dta_t get_subcmd_task_display(void);
+char get_subcmd_task_display(void);
 
 bool any_submcd_task_display(void);
 

@@ -80,6 +80,7 @@ static char system_str[17];
 
 static bool is_menu_button_event(task_system_ev_t event);
 static task_menu_ev_t system_event_to_menu_event(task_system_ev_t system_ev);
+static void task_system_statechart(shared_data_type *p_shared_data);
 
 /********************** internal data definition *****************************/
 const char *p_task_system 		= "Task System (System Statechart)";
@@ -126,15 +127,7 @@ void task_system_init(void *parameters)
 
 void task_system_update(void *parameters)
 {
-	task_system_dta_t *p_task_system_dta;
 	bool b_time_update_required = false;
-	bool b_display_update_required = false;
-
-	shared_data_type *p_shared_data = (shared_data_type *)parameters;
-
-	uint32_t temp = temp_raw_to_celsius(p_shared_data->temp_raw);
-	uint32_t press = press_raw_to_kPa(p_shared_data->pressure_raw);
-	bool b_is_alarm_set = false;
 
 	/* Update Task System Counter */
 	g_task_system_cnt++;
@@ -163,130 +156,154 @@ void task_system_update(void *parameters)
 		}
 		__asm("CPSIE i");	/* enable interrupts*/
 
-    	/* Update Task System Data Pointer */
-		p_task_system_dta = &task_system_dta;
+		task_system_statechart((shared_data_type *)parameters);
+	}
+}
 
-		if (DEL_SYS_XX_MIN < p_task_system_dta->tick)
+static void task_system_statechart(shared_data_type *p_shared_data) {
+	task_system_dta_t *p_task_system_dta;
+
+	bool b_display_update_required = false;
+
+	uint32_t temp = temp_raw_to_celsius(p_shared_data->temp_raw);
+	uint32_t press = press_raw_to_kPa(p_shared_data->pressure_raw);
+	bool b_is_alarm_set = false;
+
+	/* Update Task System Data Pointer */
+	p_task_system_dta = &task_system_dta;
+
+	if (DEL_SYS_XX_MIN < p_task_system_dta->tick)
+	{
+		p_task_system_dta->tick--;
+	}
+	else
+	{
+		p_task_system_dta->tick = DEL_SYS_XX_MAX;
+		b_display_update_required = true;
+	}
+
+	if (true == any_event_task_system())
+	{
+		p_task_system_dta->flag = true;
+		p_task_system_dta->event = get_event_task_system();
+	}
+
+	switch (p_task_system_dta->state)
+	{
+	case ST_SYS_MENU_MODE:
+		if ((true == p_task_system_dta->flag)
+				&& is_menu_button_event(p_task_system_dta->event))
 		{
-			p_task_system_dta->tick--;
+			p_task_system_dta->flag = false;
+			task_menu_ev_t menu_ev = system_event_to_menu_event(p_task_system_dta->event);
+			put_event_task_menu(menu_ev);
 		}
-		else
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
 		{
-			p_task_system_dta->tick = DEL_SYS_XX_MAX;
-			b_display_update_required = true;
+			p_task_system_dta->flag = false;
+			p_task_system_dta->enabled = true;
 		}
-
-		if (true == any_event_task_system())
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
 		{
-			p_task_system_dta->flag = true;
-			p_task_system_dta->event = get_event_task_system();
+			p_task_system_dta->flag = false;
+			p_task_system_dta->enabled = false;
 		}
-
-		switch (p_task_system_dta->state)
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_EXIT_MENU == p_task_system_dta->event))
 		{
-			case ST_SYS_MENU_MODE:
-				if ((true == p_task_system_dta->flag) && is_menu_button_event(p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					task_menu_ev_t menu_ev = system_event_to_menu_event(p_task_system_dta->event);
-					put_event_task_menu(menu_ev);
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->enabled = true;
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->enabled = false;
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_EXIT_MENU == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->state = ST_SYS_NORMAL_MODE;
-				}
-
-				break;
-
-			case ST_SYS_NORMAL_MODE:
-				if (b_display_update_required)
-				{
-					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-					snprintf(system_str, sizeof(system_str), "%2lu \xDF""C | %3lu kPa", temp, press);
-					put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
-
-					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);\
-					put_cmd_task_display(CMD_DISP_WRITE_STR, "Estado: ");
-					put_cmd_task_display(CMD_DISP_WRITE_STR,
-							(p_task_system_dta->enabled) ? "on      " : "off     ");
-				}
-
-				if (p_task_system_dta->enabled && p_shared_data->cfg.alarm_enabled)
-				{
-					if (p_shared_data->cfg.temp_alarm_limit > p_shared_data->cfg.temp_setpoint)
-						b_is_alarm_set |= (temp > p_shared_data->cfg.temp_alarm_limit);
-					else
-						b_is_alarm_set |= (temp < p_shared_data->cfg.temp_alarm_limit);
-
-					if (p_shared_data->cfg.press_alarm_limit > p_shared_data->cfg.press_setpoint)
-						b_is_alarm_set |= (press > p_shared_data->cfg.press_alarm_limit);
-					else
-						b_is_alarm_set |= (press < p_shared_data->cfg.press_alarm_limit);
-				}
-
-				if (b_is_alarm_set)
-				{
-					p_task_system_dta->state = ST_SYS_ALARM_MODE;
-					// TODO: encender buzzer
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->state = ST_SYS_MENU_MODE;
-					put_event_task_menu(EV_MEN_ENT_ACTIVE);
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->enabled = true;
-					put_event_task_temp(EV_TEMP_ENABLE_ON);
-					put_event_task_press(EV_PRESS_ENABLE_ON);
-				}
-				else if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->enabled = false;
-					put_event_task_temp(EV_TEMP_ENABLE_OFF);
-					put_event_task_press(EV_PRESS_ENABLE_OFF);
-				}
-				break;
-
-			case ST_SYS_ALARM_MODE:
-				if (b_display_update_required)
-				{
-					put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
-					snprintf(system_str, sizeof(system_str), "%2lu \xDF""C | %3lu kPa", temp, press);
-					put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
-
-					put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
-					put_cmd_task_display(CMD_DISP_WRITE_STR, "    ALARMA!     ");
-				}
-
-				if ((true == p_task_system_dta->flag) && (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
-				{
-					p_task_system_dta->flag = false;
-					p_task_system_dta->enabled = false;
-					p_task_system_dta->state = ST_SYS_NORMAL_MODE;
-					put_event_task_temp(EV_TEMP_ENABLE_OFF);
-					put_event_task_press(EV_PRESS_ENABLE_OFF);
-					// TODO: apagar el buzzer
-				}
-				break;
-
-			default:
-				break;
+			p_task_system_dta->flag = false;
+			p_task_system_dta->state = ST_SYS_NORMAL_MODE;
 		}
+
+		break;
+
+	case ST_SYS_NORMAL_MODE:
+		if (b_display_update_required)
+		{
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+
+			build_status_bar(system_str, temp, press);
+
+			put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "Estado: ");
+			put_cmd_task_display(CMD_DISP_WRITE_STR,
+					(p_task_system_dta->enabled) ? "on      " : "off     ");
+		}
+
+		if (p_task_system_dta->enabled && p_shared_data->cfg.alarm_enabled)
+		{
+			if (p_shared_data->cfg.temp_alarm_limit
+					> p_shared_data->cfg.temp_setpoint)
+				b_is_alarm_set |= (temp > p_shared_data->cfg.temp_alarm_limit);
+			else
+				b_is_alarm_set |= (temp < p_shared_data->cfg.temp_alarm_limit);
+
+			if (p_shared_data->cfg.press_alarm_limit
+					> p_shared_data->cfg.press_setpoint)
+				b_is_alarm_set |=
+						(press > p_shared_data->cfg.press_alarm_limit);
+			else
+				b_is_alarm_set |=
+						(press < p_shared_data->cfg.press_alarm_limit);
+		}
+
+		if (b_is_alarm_set)
+		{
+			p_task_system_dta->state = ST_SYS_ALARM_MODE;
+			// TODO: encender buzzer
+		}
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
+		{
+			p_task_system_dta->flag = false;
+			p_task_system_dta->state = ST_SYS_MENU_MODE;
+			put_event_task_menu(EV_MEN_ENT_ACTIVE);
+		}
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENABLE_ACTIVE == p_task_system_dta->event))
+		{
+			p_task_system_dta->flag = false;
+			p_task_system_dta->enabled = true;
+			put_event_task_temp(EV_TEMP_ENABLE_ON);
+			put_event_task_press(EV_PRESS_ENABLE_ON);
+		}
+		else if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
+		{
+			p_task_system_dta->flag = false;
+			p_task_system_dta->enabled = false;
+			put_event_task_temp(EV_TEMP_ENABLE_OFF);
+			put_event_task_press(EV_PRESS_ENABLE_OFF);
+		}
+
+		break;
+
+	case ST_SYS_ALARM_MODE:
+		if (b_display_update_required)
+		{
+			put_cmd_task_display(CMD_DISP_TO_LINE_0, NULL);
+			build_status_bar(system_str, temp, press);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, system_str);
+			put_cmd_task_display(CMD_DISP_TO_LINE_1, NULL);
+			put_cmd_task_display(CMD_DISP_WRITE_STR, "    ALARMA!     ");
+		}
+		if ((true == p_task_system_dta->flag)
+				&& (EV_SYS_ENABLE_IDLE == p_task_system_dta->event))
+		{
+			p_task_system_dta->flag = false;
+			p_task_system_dta->enabled = false;
+			p_task_system_dta->state = ST_SYS_NORMAL_MODE;
+			put_event_task_temp(EV_TEMP_ENABLE_OFF);
+			put_event_task_press(EV_PRESS_ENABLE_OFF);
+			// TODO: apagar el buzzer
+		}
+		break;
+
+	default:
+		break;
 	}
 }
 
@@ -338,6 +355,9 @@ static task_menu_ev_t system_event_to_menu_event(task_system_ev_t system_ev)
 		menu_ev = EV_MEN_ESC_ACTIVE;
 		break;
 	default:
+		// No debería ocurrir
+		__builtin_unreachable();
+		while (1) {}
 		break;
 	}
 	return menu_ev;
