@@ -132,6 +132,7 @@ void task_press_update(void *parameters)
 			{
 				p_task_press_dta->flag = false;
 				p_task_press_dta->state = ST_PRESS_IDLE;
+				put_event_task_actuator(EV_ACT_XX_ON, ID_ACT_VALVE);
 			}
 			break;
 
@@ -140,18 +141,18 @@ void task_press_update(void *parameters)
 			{
 				p_task_press_dta->flag = false;
 				p_task_press_dta->state = ST_PRESS_OFF;
-				// TODO: Abrir válvula (no queremos mantener vacío si apagamos el control)
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_VALVE);
 			}
 			// Equivalente a (press < setpoint - hist) pero evita underflow si (hist > setpoint)
 			else if (press + shared_data->cfg.press_hysteresis < shared_data->cfg.press_setpoint)
 			{
 				p_task_press_dta->state = ST_PRESS_RELEASE;
-				// TODO: Abrir válvula
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_VALVE);
 			}
 			else if (press > shared_data->cfg.press_setpoint + shared_data->cfg.press_hysteresis)
 			{
 				p_task_press_dta->state = ST_PRESS_VACUUM;
-				// TODO: Encender la bomba de vacío
+				put_event_task_actuator(EV_ACT_XX_ON, ID_ACT_PUMP);
 			}
 			break;
 
@@ -165,7 +166,7 @@ void task_press_update(void *parameters)
 			else if (press > shared_data->cfg.press_setpoint)
 			{
 				p_task_press_dta->state = ST_PRESS_IDLE;
-				// TODO: Cerrar la válvula
+				put_event_task_actuator(EV_ACT_XX_ON, ID_ACT_VALVE);
 			}
 			break;
 
@@ -174,12 +175,13 @@ void task_press_update(void *parameters)
 			{
 				p_task_press_dta->flag = false;
 				p_task_press_dta->state = ST_PRESS_OFF;
-				// TODO: Apagar bomba y abrir válvula
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_PUMP);
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_VALVE);
 			}
 			else if (press < shared_data->cfg.press_setpoint)
 			{
 				p_task_press_dta->state = ST_PRESS_IDLE;
-				// TODO: Apagar la bomba
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_PUMP);
 			}
 			break;
 

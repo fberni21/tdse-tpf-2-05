@@ -85,7 +85,7 @@ const task_cfg_t task_cfg_list[]	= {
 		{task_system_init, 		task_system_update, 	&shared_data},
 		{task_temp_init, 		task_temp_update, 		&shared_data},
 		{task_press_init, 		task_press_update, 		&shared_data},
-		//{task_actuator_init,	task_actuator_update, 	NULL},
+		{task_actuator_init,	task_actuator_update, 	NULL},
 		{task_adc_init,			task_adc_update, 		&shared_data},
 		{task_display_init,		task_display_update, 	NULL},
 		{task_menu_init,		task_menu_update, 		&shared_data},

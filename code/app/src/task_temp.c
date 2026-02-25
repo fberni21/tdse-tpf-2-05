@@ -145,12 +145,12 @@ void task_temp_update(void *parameters)
 			else if (temp + shared_data->cfg.temp_hysteresis < shared_data->cfg.temp_setpoint)
 			{
 				p_task_temp_dta->state = ST_TEMP_HEATING;
-				// TODO: Prender el actuador del calentador
+				put_event_task_actuator(EV_ACT_XX_ON, ID_ACT_HEATER);
 			}
 			else if (temp > shared_data->cfg.temp_setpoint + shared_data->cfg.temp_hysteresis)
 			{
 				p_task_temp_dta->state = ST_TEMP_COOLING;
-				// TODO: Prender el actuador del enfriador
+				put_event_task_actuator(EV_ACT_XX_ON, ID_ACT_COOLER);
 			}
 			break;
 
@@ -159,12 +159,12 @@ void task_temp_update(void *parameters)
 			{
 				p_task_temp_dta->flag = false;
 				p_task_temp_dta->state = ST_TEMP_OFF;
-				// TODO: apagar el calentador
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_HEATER);
 			}
 			else if (temp > shared_data->cfg.temp_setpoint)
 			{
 				p_task_temp_dta->state = ST_TEMP_IDLE;
-				// TODO:Apagar el actuador del calentador
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_HEATER);
 			}
 			break;
 
@@ -173,12 +173,12 @@ void task_temp_update(void *parameters)
 			{
 				p_task_temp_dta->flag = false;
 				p_task_temp_dta->state = ST_TEMP_OFF;
-				// TODO: apagar el enfriador
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_COOLER);
 			}
 			else if (temp < shared_data->cfg.temp_setpoint)
 			{
 				p_task_temp_dta->state = ST_TEMP_IDLE;
-				// TODO:Apagar el actuador del enfriador
+				put_event_task_actuator(EV_ACT_XX_OFF, ID_ACT_COOLER);
 			}
 			break;
 

@@ -52,7 +52,6 @@ extern "C" {
 /********************** typedef **********************************************/
 
 /* Events to excite Task Menu */
-// TODO: revisar si tiene que ir acá o no
 typedef enum task_menu_ev {EV_MEN_ENT_IDLE,
 						   EV_MEN_ENT_ACTIVE,
 						   EV_MEN_NEX_IDLE,

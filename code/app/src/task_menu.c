@@ -565,8 +565,12 @@ void task_menu_statechart(shared_data_type *p_shared_data)
 				p_task_menu_dta->flag = false;
 				if (EV_MEN_NEX_ACTIVE == p_task_menu_dta->event)
 				{
+					p_task_menu_dta->cfg.alarm_enabled = 1 - p_task_menu_dta->cfg.alarm_enabled;
+				}
+				if (EV_MEN_PRE_ACTIVE == p_task_menu_dta->event)
+				{
 					// Toggle bool
-					p_task_menu_dta->cfg.alarm_enabled = !p_task_menu_dta->cfg.alarm_enabled;
+					p_task_menu_dta->cfg.alarm_enabled = 1 - p_task_menu_dta->cfg.alarm_enabled;
 				}
 				else if (EV_MEN_ENT_ACTIVE == p_task_menu_dta->event)
 				{
@@ -710,7 +714,8 @@ void recover_saved_cfg(system_config_t *cfg)
 		cfg->press_alarm_limit = saved_cfg.press_alarm_limit;
 
 	// Alarma
-	cfg->alarm_enabled = saved_cfg.alarm_enabled;
+	if (is_in_range(saved_cfg.alarm_enabled, 0, 1))
+		cfg->alarm_enabled = saved_cfg.alarm_enabled;
 }
 
 /********************** end of file ******************************************/

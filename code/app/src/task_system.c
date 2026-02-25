@@ -253,7 +253,7 @@ static void task_system_statechart(shared_data_type *p_shared_data) {
 		if (b_is_alarm_set)
 		{
 			p_task_system_dta->state = ST_SYS_ALARM_MODE;
-			// TODO: encender buzzer
+			put_event_task_actuator(EV_ACT_XX_BLINK, ID_ACT_BUZZER);
 		}
 		else if ((true == p_task_system_dta->flag)
 				&& (EV_SYS_ENT_ACTIVE == p_task_system_dta->event))
@@ -298,7 +298,7 @@ static void task_system_statechart(shared_data_type *p_shared_data) {
 			p_task_system_dta->state = ST_SYS_NORMAL_MODE;
 			put_event_task_temp(EV_TEMP_ENABLE_OFF);
 			put_event_task_press(EV_PRESS_ENABLE_OFF);
-			// TODO: apagar el buzzer
+			put_event_task_actuator(EV_ACT_XX_NOT_BLINK, ID_ACT_BUZZER);
 		}
 		break;
 
