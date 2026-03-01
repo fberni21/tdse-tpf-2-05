@@ -1,0 +1,243 @@
+\documentclass{beamer}
+
+\usetheme{metropolis}
+\usepackage{xcolor}
+
+\title{Sistema de Control \\ para Cámara de Termovacío}
+\subtitle{Trabajo Práctico Final \\ Taller de Sistemas Embebidos}
+
+\author{Franco Berni \,•\, Manuel Hirsch \,•\, Juan Ignacio Giachetti \,•\, Lautaro García Vitale}
+
+\institute{Facultad de Ingeniería -- UBA}
+
+\date{1\textsuperscript{er} Cuatrimestre 2025}
+
+\begin{document}
+	
+	\frame{\titlepage}
+	
+\begin{frame}{¿Qué es una cámara de termovacío?}
+	
+	\small
+	
+	Una \textbf{cámara de termovacío} es un sistema cerrado que permite 
+	\textbf{controlar simultáneamente la temperatura y la presión} 
+	en un entorno aislado.
+	
+	
+	\vspace{0.5cm}
+	
+	\textbf{Aplicaciones típicas}
+	
+	\begin{itemize}
+		\item Ensayos de componentes electrónicos
+		\item Testing aeroespacial
+		\item Pruebas de materiales
+	\end{itemize}
+	
+\end{frame}
+
+\begin{frame}{Producto Mínimo Viable (MVP)}
+	
+	\small
+	
+	El sistema desarrollado corresponde a un \textbf{producto mínimo viable} que
+	replica el comportamiento lógico de una cámara de termovacío real,
+	utilizando elementos simples para simular sensores y actuadores.
+	
+	\vspace{0.5cm}
+	
+	\begin{tabular}{p{4.5cm} p{5cm}}
+		\textbf{Sistema real} & \textbf{Implementación en el MVP} \\
+		\hline
+		Sensor de temperatura & Potenciómetro leído por ADC \\
+		Sensor de presión & Potenciómetro leído por ADC \\
+		Calentador / refrigeración & LED indicador \\
+		Bomba de vacío & LED indicador \\
+		Sistema de alarma & Buzzer \\
+		Panel de control & LCD + botones / switches \\
+	\end{tabular}
+	
+\end{frame}
+
+\begin{frame}{Prototipo del sistema (MVP)}
+	
+	\centering
+	
+	\small
+	Implementación física del MVP utilizando una placa STM32 y periféricos
+	para simular sensores, actuadores e interfaz de usuario.
+	
+	\vspace{0.4cm}
+	
+	\includegraphics[width=0.5\textwidth]{img/mvp.jpeg}
+	
+\end{frame}
+
+\begin{frame}{Statechart del sistema}
+	
+	\centering
+	\includegraphics[width=0.85\textwidth]{img/sc_sys.drawio.pdf}
+	
+	\vspace{0.4cm}
+	
+	\small
+	\textbf{Funcionamiento general}
+	
+	\begin{itemize}
+		\item En modo \textbf{NORMAL}, si llega un evento de encendido, avisa a los sistemas de presión y temperatura que controlen.
+		\item En modo \textbf{MENÚ} se configuran los parámetros.
+		\item Estando en modo \textbf{NORMAL}, si algún valor excede los límites de alarma, se entra en modo \textbf{ALARMA}.
+		\item Se navega con el botón de Enter.
+	\end{itemize}
+	\vspace{0.6cm}
+	{\tiny Implementación: \texttt{code/app/src/task\_system.c}}
+	
+\end{frame}
+
+\begin{frame}{Statechart del menú}
+	
+	\centering
+	\includegraphics[width=0.85\textwidth]{img/sc_menu.drawio.pdf}
+	
+	\vspace{0.1cm}
+	
+	\small
+	\textbf{Funcionamiento del menú}
+	
+	\begin{itemize}
+		\item El usuario accede al \textbf{MENÚ} mediante los botones del sistema.
+		\item Se pueden modificar los \textbf{setpoints de temperatura y presión} y las \textbf{bandas de histéresis}.
+		\item Se puede configurar el uso de \textbf{alarmas}.
+		\item Una vez confirmados los cambios, los parámetros se \textbf{guardan en memoria}.
+	\end{itemize}
+	
+	{\tiny Implementación: \texttt{code/app/src/task\_menu.c}}
+	
+\end{frame}
+
+\begin{frame}{Control de temperatura y presión}
+	
+	\begin{columns}
+		
+		\column{0.48\textwidth}
+		\centering
+		\textbf{Control de temperatura}
+		
+		
+		\includegraphics[width=\linewidth]{img/sc_temp.drawio.pdf}
+		
+
+		
+		{\tiny Implementación: \texttt{code/app/src/task\_temp.c}}
+		
+		\column{0.48\textwidth}
+		\centering
+		\textbf{Control de presión}
+		
+		
+		\includegraphics[width=\linewidth]{img/sc_press.drawio.pdf}
+		
+		
+		{\tiny Implementación: \texttt{code/app/src/task\_press.c}}
+		
+	\end{columns}
+	
+	\vspace{0.4cm}
+	
+	\small
+	\begin{itemize}
+		\item Ambos controles utilizan una lógica basada en \textbf{setpoints} y \textbf{bandas de histéresis}.
+		\item El sistema monitorea continuamente los valores de temperatura y presión.
+		\item Cuando una variable sale de la banda permitida, se activa el actuador correspondiente.
+	\end{itemize}
+	
+\end{frame}
+
+\begin{frame}{Ejemplo: línea de tiempo}
+	
+	\centering
+	\includegraphics[width=1\textwidth]{img/linea_tiempo.drawio.pdf}
+	
+	
+\end{frame}
+
+\begin{frame}{Adquisición de señales analógicas}
+	
+	\small
+	
+	\begin{itemize}
+		\item El sistema mide las variables de \textbf{temperatura} y \textbf{presión} mediante dos entradas analógicas del microcontrolador.
+		
+		\item Se simulan utilizando \textbf{potenciómetros}, cuyas tensiones son convertidas por el \textbf{ADC del STM32}.
+		
+		\item Se convierten ambos canales en cada ciclo
+		
+		\item Los resultados de las conversiones se transfieren automáticamente a memoria mediante \textbf{DMA (Direct Memory Access)}.
+		
+		\item El uso de DMA permite almacenar las mediciones en un \texttt{adc\_buffer} \textbf{sin intervención del CPU}, reduciendo la carga del procesador y permitiendo que se sigan ejecutando las tareas.
+		
+		\item \texttt{task\_adc} lee este buffer y copia los valores a la estructura compartida \texttt{shared\_data} para que el resto del sistema utilice las mediciones.
+	\end{itemize}
+	
+	\vspace{0.2cm}
+	{\tiny Implementación: \texttt{code/app/src/task\_adc.c}}
+	
+\end{frame}
+
+\begin{frame}{Escritura no bloqueante en EEPROM}
+	
+	\small
+	
+	\textbf{Problema}
+	
+	\begin{itemize}
+		\item Se busca que cada ciclo dure menos de \textbf{1 ms}.
+		\item Una escritura en EEPROM tarda aproximadamente \textbf{5 ms}.
+		\item Una implementación bloqueante detendría el sistema durante varias iteraciones.
+	\end{itemize}
+	
+	\vspace{0.3cm}
+	
+	\textbf{Solución}
+	
+	\begin{itemize}
+		\item Se utiliza \textbf{I2C con interrupciones} (\texttt{HAL\_I2C\_Mem\_Write\_IT}).
+		\item La transmisión se realiza en segundo plano.
+		\item Un \textbf{callback} indica cuándo finaliza la operación.
+	\end{itemize}
+	
+	\vspace{0.2cm}
+	{\tiny Implementación: \texttt{code/app/src/eeprom.c}}
+	
+\end{frame}
+
+\begin{frame}{Actualización no bloqueante del display}
+	
+	\small
+	
+	\textbf{Problema}
+	
+	\begin{itemize}
+		\item La comunicación con el display LCD se realiza por \textbf{I2C}.
+		\item Escribir múltiples caracteres puede tomar mucho tiempo.
+		\item Se tiene un problema similar al anterior.
+	\end{itemize}
+	
+	\vspace{0.3cm}
+	
+	\textbf{Solución}
+	
+	\begin{itemize}
+		\item Se implementó una \textbf{cola de comandos} para el display.
+		\item Las distintas tareas envían comandos a la cola.
+		\item La tarea de display procesa los comandos \textbf{gradualmente en cada iteración}.
+	\end{itemize}
+	
+	\vspace{0.2cm}
+	{\tiny Implementación: \texttt{code/app/src/task\_display.c}}
+	
+\end{frame}
+
+	
+\end{document}
